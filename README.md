@@ -10,5 +10,9 @@ how much capital flows down that trail in the next epoch. Good trails thicken
 and attract more capital. Weak trails fade through time decay and drain. No
 human picks the winning strategy.
 
+This repository is the protocol specification: the architecture, the allocation
+mathematics, the loss-containment model, the trust model, and the sources each
+was checked against.
+
 ---
 
