@@ -16,3 +16,6 @@ was checked against.
 
 ---
 
+## License
+
+MIT. See [`LICENSE`](./LICENSE).
