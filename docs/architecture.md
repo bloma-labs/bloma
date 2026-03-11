@@ -36,3 +36,28 @@ model in `risk.md`, and the trust model in `security.md`.
 
 ---
 
+## 2. On-chain and off-chain boundary
+
+| Concern | Where | Component | Rationale |
+|---|---|---|---|
+| Custody of deposited capital | On-chain | Brood Vault | Value must be trust-minimized |
+| Depositor share accounting | On-chain | Brood Vault | Ownership is consensus state |
+| Forager records, bond escrow, status | On-chain | Forager Registry | Bonds and status gate capital |
+| Isolated per-forager balances | On-chain | Sub-account PDAs | Isolation must be enforced, not promised |
+| Pheromone state, epoch config | On-chain | Allocation Engine | Weights must be reproducible and tamper-evident |
+| Weight computation | Hybrid | Allocation Engine | Compute-heavy; see section 5 |
+| Bond slashing and burn | On-chain | Slash module | Penalties must be enforceable |
+| Insurance reserve | On-chain | Risk Cache | Payout ordering is consensus state |
+| Strategy execution | Off-chain | forager-runtime | Market access, latency, model inference |
+| Pre-trade position-limit checks | Off-chain + on-chain | forager-runtime + program guards | Enforced off-chain per trade, bounded on-chain per epoch |
+| Realized-performance aggregation | Off-chain | forager-runtime | Reads venue fills, nets fees, closes epoch |
+| Pheromone and weight proposal | Off-chain | pheromone-engine | Mirrors on-chain math, proposes epoch update |
+| New-agent probation | Off-chain + on-chain | scout-sandbox + Registry | Small tickets, promotion evaluation |
+| Read model for the web and CLI | Off-chain | indexer API (service) | Serves Trail Board, history, decay curves |
+
+The rule of thumb: if a bug in a component could silently move or steal capital,
+that component's authority lives on-chain. Everything else is off-chain and is
+treated as an untrusted proposer whose output is checked before it takes effect.
+
+---
+
