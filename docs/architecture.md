@@ -61,3 +61,103 @@ treated as an untrusted proposer whose output is checked before it takes effect.
 
 ---
 
+## 3. Component map
+
+```mermaid
+%%{init: {'theme':'base','themeVariables':{'background':'#0E0F0C','mainBkg':'#5C4B3A','primaryColor':'#5C4B3A','primaryTextColor':'#E4E0D2','primaryBorderColor':'#B6E04A','secondaryColor':'#3E5A44','secondaryTextColor':'#E4E0D2','secondaryBorderColor':'#B6E04A','tertiaryColor':'#1A1712','tertiaryTextColor':'#E4E0D2','lineColor':'#B6E04A','textColor':'#E4E0D2','nodeTextColor':'#E4E0D2','clusterBkg':'#161310','clusterBorder':'#5C4B3A','edgeLabelBackground':'#0E0F0C','fontFamily':'Public Sans, sans-serif'}}}%%
+flowchart TB
+  subgraph OFFCHAIN["Off-chain services"]
+    direction TB
+    RT["forager-runtime<br/>strategy execution + limits + perf"]
+    PE["pheromone-engine<br/>evaporation + deposit + weights"]
+    SS["scout-sandbox<br/>probation + promotion"]
+    RC["risk-cache service<br/>drawdown watch + slash proposals"]
+    IX["indexer API (service)<br/>Trail Board read model"]
+  end
+  subgraph ONCHAIN["Anchor program (Solana mainnet)"]
+    direction TB
+    REG["Forager Registry<br/>records + bond escrow + status"]
+    BV["Brood Vault<br/>custody + shares"]
+    AE["Allocation Engine<br/>pheromone + capped weights"]
+    SUB["Forager sub-accounts<br/>isolated PDAs"]
+    SL["Slash module"]
+    CA["Risk Cache reserve"]
+  end
+  USER["Depositor wallet"] -->|"deposit base asset"| BV
+  BV -->|"mint shares"| USER
+  AE -->|"target weights"| BV
+  BV -->|"route capital"| SUB
+  SUB --> RT
+  RT -->|"epoch realized perf commit"| AE
+  AE -->|"updated pheromone"| AE
+  RT -->|"limit breach / loss"| RC
+  RC -->|"slash trigger"| SL
+  SL -->|"burn + cover"| CA
+  CA -->|"cover shortfall"| BV
+  REG --- SUB
+  SS -->|"promotion"| REG
+  PE -.->|"mirror + propose"| AE
+  ONCHAIN --> IX
+  IX -->|"weights, realized perf, drawdown, decay"| WEB["web (Trail Board)"]
+  IX --> CLI["kolny-cli / Agent SDK"]
+
+  classDef onc fill:#5C4B3A,stroke:#B6E04A,stroke-width:1px,color:#E4E0D2;
+  classDef off fill:#3E5A44,stroke:#B6E04A,stroke-width:1px,color:#E4E0D2;
+  classDef val fill:#0E0F0C,stroke:#D08A2C,stroke-width:1px,color:#E4E0D2;
+  class REG,BV,AE,SUB,SL,CA onc;
+  class RT,PE,SS,RC,IX off;
+  class USER,WEB,CLI val;
+```
+
+### 3.1 On-chain: the Anchor program
+
+- **Forager Registry** holds one record per forager: operator authority, bond
+  amount and escrow, lifecycle status (Scout, Active, Probation, Slashed,
+  Exited), the address of its isolated sub-account, and its position-limit
+  profile. Registration requires a `$KOLNY` bond. See `risk.md` section 1.
+- **Brood Vault** is the single entry point for depositors. A deposit of the
+  base asset mints vault shares proportional to net asset value. The vault holds
+  un-deployed base asset and is the accounting root; forager sub-accounts are
+  children of it. Withdrawal burns shares against the vault's realized value.
+- **Forager sub-accounts** are per-forager PDAs that hold that forager's
+  allocated slice. A forager operator can direct trades only from its own
+  sub-account and only within its position-limit profile. This PDA boundary is
+  the isolation guarantee.
+- **Allocation Engine** stores each forager's pheromone value, the epoch config,
+  and the last committed realized-performance inputs. At each epoch boundary it
+  applies evaporation and the performance deposit, then produces capped target
+  weights. See section 5 for where the arithmetic runs.
+- **Slash module** executes bond slashing when a trigger fires (loss threshold,
+  rule violation, or non-response) and routes the slashed bond between burn and
+  the Risk Cache. See `risk.md` section 1.
+- **Risk Cache** is the insurance reserve. It accrues from a cut of realized
+  colony profit and from slashed bonds, and it is drawn first when a covered
+  shortfall occurs. See `risk.md` section 4.
+- The program **IDL is published** to the public repository so any
+  client, the CLI, and the Agent SDK build against a pinned interface.
+
+### 3.2 Off-chain: the services
+
+- **forager-runtime** hosts each forager's strategy against its isolated
+  sub-account. It enforces position limits before every trade, records fills,
+  nets fees and slippage and funding, and at each epoch close it submits a
+  signed realized-performance commit to the Allocation Engine. It is the
+  boundary between "an agent wants to trade" and "the sub-account is allowed to".
+- **pheromone-engine** is the reference implementation of the allocation math.
+  It reads on-chain committed inputs and config, recomputes pheromone and
+  weights in the same fixed-point arithmetic the program uses, and proposes the
+  epoch update. It is an untrusted proposer: the program verifies its output.
+- **scout-sandbox** manages probationary foragers. New foragers receive small,
+  fixed scout tickets funded from the exploration budget and are evaluated for
+  promotion once they clear the minimum-epochs, minimum-trades, and
+  performance bars. See `allocation.md` section 6.
+- **risk-cache service** watches per-forager drawdown and rule compliance,
+  raises slash proposals, and manages cache accrual and reserve-ratio targets.
+- **indexer API** (the `service` app) reads chain state and
+  serves the read model consumed by the web Trail Board, the
+  `kolny-cli`, and the Agent SDK: current weights, per-forager realized
+  performance, drawdown, pheromone decay curves, slash history, and epoch
+  history.
+
+---
+
