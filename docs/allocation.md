@@ -56,3 +56,42 @@ just normalized, capped pheromone (section 7).
 
 ---
 
+## 2. Realized performance score
+
+The deposit is built from a single per-epoch, per-forager number, the
+**risk-adjusted realized performance**:
+
+```
+perf_f(e)  =  r_f(e)  -  lambda * DD_f(e)
+```
+
+- `r_f(e)` is the forager's **realized net return rate** over epoch `e`: the PnL
+  from positions that were closed and settled on-chain within the epoch, net of
+  trading fees, slippage, and funding, divided by the average capital deployed to
+  that forager during the epoch. It is a unitless rate, so it compares foragers
+  fairly regardless of how much capital each held.
+- `DD_f(e) >= 0` is the **realized maximum drawdown** inside the epoch: the
+  largest peak-to-trough decline of the forager's realized equity curve.
+- `lambda >= 0` is the **risk-aversion coefficient**. It penalizes returns that
+  were earned through deep intra-epoch drawdowns, so a forager cannot climb the
+  trail by taking ruinous risk that happened to pay off this once.
+
+The subtractive drawdown penalty is chosen over a divisive Sharpe/Sortino ratio
+because it is cheap and unambiguous to compute in on-chain fixed-point and it
+stays well-defined when volatility is near zero. A Sortino-style denominator
+(dividing by downside deviation) is a valid alternative if richer trade-level
+data is committed; it is noted here as a future refinement, not the default.
+
+### 2.1 Realized-only rule (mandatory)
+
+`r_f(e)` and `DD_f(e)` are computed **only** from positions closed and settled
+before the epoch-close slot. Open positions are marked, at a conservative oracle
+price, for display of current drawdown on the Trail Board, but that mark **never**
+enters `perf_f` and never moves capital. Backtests and paper results never enter
+`perf_f`. This rule is what lets the header advertise realized performance
+honestly, and it removes the largest manipulation surface: you cannot inflate
+your trail by holding a losing position open or by marking your own book. See
+`risk.md` and `security.md` for the settlement-finality and oracle defenses.
+
+---
+
