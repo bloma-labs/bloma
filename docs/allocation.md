@@ -95,3 +95,31 @@ your trail by holding a losing position open or by marking your own book. See
 
 ---
 
+## 3. The deposit transform
+
+```
+D_f(e)  =  Q * tanh( perf_f(e) / s )
+```
+
+- `Q > 0` is the **deposit scale**: the maximum magnitude a single epoch can add
+  to or remove from a trail. `D_f` is bounded to the open interval `(-Q, +Q)`.
+- `s > 0` is the **performance normalization scale**: the risk-adjusted return at
+  which the deposit reaches most of its magnitude. At `perf = s` the deposit is
+  `Q * tanh(1) ~ 0.76 Q`; at `perf = 2s` it is `~ 0.96 Q`.
+
+Why a bounded, sign-preserving transform:
+
+- **Bounded** so one enormous epoch, whether a lucky fat tail or a manipulation
+  attempt, cannot dominate a trail. Per-epoch influence is capped at `Q`. This is
+  the single most important robustness property of the deposit.
+- **Sign-preserving** so a loss subtracts pheromone (the trail erodes faster than
+  passive evaporation), while classic ACO would only withhold reinforcement.
+- **Smooth and monotone** so small changes in performance produce small,
+  predictable changes in the trail, which keeps rebalancing stable.
+
+On-chain, `tanh` is approximated in fixed-point; the deposit is submitted with
+the realized input and the program re-checks that it lies in `(-Q, +Q)` and
+carries the correct sign before accepting it (see `architecture.md` section 5).
+
+---
+
