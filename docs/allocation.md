@@ -123,3 +123,13 @@ carries the correct sign before accepting it (see `architecture.md` section 5).
 
 ---
 
+## 4. Realized performance, not marks (restated as an invariant)
+
+The allocation engine must reject any epoch commit whose `perf_f` is not derived
+purely from settled, closed trades. This is restated here as a hard invariant
+because it is the rule most likely to be quietly bent under pressure to make the
+numbers look better: **if it is not realized and settled on-chain, it does not
+move capital and it does not appear in a trust indicator.**
+
+---
+
