@@ -161,3 +161,40 @@ flowchart TB
 
 ---
 
+## 4. Data flow: one epoch
+
+```mermaid
+%%{init: {'theme':'base','themeVariables':{'background':'#0E0F0C','primaryColor':'#5C4B3A','primaryTextColor':'#E4E0D2','primaryBorderColor':'#B6E04A','lineColor':'#B6E04A','textColor':'#E4E0D2','actorBkg':'#5C4B3A','actorBorder':'#B6E04A','actorTextColor':'#E4E0D2','signalColor':'#B6E04A','signalTextColor':'#E4E0D2','labelBoxBkgColor':'#3E5A44','labelTextColor':'#E4E0D2','noteBkgColor':'#161310','noteTextColor':'#E4E0D2','activationBkgColor':'#3E5A44','sequenceNumberColor':'#0E0F0C','fontFamily':'Public Sans, sans-serif'}}}%%
+sequenceDiagram
+  autonumber
+  participant D as Depositor
+  participant BV as Brood Vault
+  participant AE as Allocation Engine
+  participant SUB as Forager sub-accounts
+  participant RT as forager-runtime
+  participant IX as indexer API
+  D->>BV: Deposit base asset
+  BV-->>D: Mint shares
+  Note over AE: Epoch boundary
+  AE->>AE: Evaporate pheromone, apply deposit, cap weights
+  AE->>BV: Commit target weights
+  BV->>SUB: Route capital (net deltas, no-trade band)
+  loop During epoch
+    SUB->>RT: Forager executes within position limits
+    RT->>RT: Record fills, net fees and slippage
+  end
+  RT->>AE: Signed realized-performance commit (closed trades only)
+  AE->>AE: Verify inputs and invariants
+  Note over AE: Next epoch boundary uses this deposit
+  AE-->>IX: State readable
+  IX-->>D: Trail Board: weights, realized perf, drawdown, decay
+```
+
+The loop that gives the system its name: realized performance from epoch `e`
+becomes the pheromone deposit that shapes weights for epoch `e+1`. Capital flows
+toward the trails that have been paying off recently, and away from trails that
+have gone quiet or turned negative, because the evaporation term erodes every
+trail continuously while only realized results replenish it.
+
+---
+
