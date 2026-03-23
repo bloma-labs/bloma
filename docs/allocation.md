@@ -175,3 +175,32 @@ the role of the discount factor `gamma`. Section 9 develops the bandit view.
 
 ---
 
+## 6. Exploration budget and cold start (Scout Sandbox)
+
+A brand-new forager has `tau = 0`. Under pure pheromone weighting it would
+receive zero capital forever and could never prove itself, which is the classic
+cold-start and rich-get-richer failure. The fix is an explicit **exploration
+budget**, the on-chain analog of the exploration term in a bandit policy.
+
+- A fixed fraction `scout_budget` of total value under colony (default 10
+  percent) is reserved for the **Scout Sandbox** and is never allocated by
+  pheromone. The main pheromone-weighted pool is therefore
+  `main_pool = (1 - scout_budget) * deployable_TVL`.
+- New and probationary foragers trade only small, fixed-size **scout tickets**
+  from this budget. A scout's downside is bounded to its ticket plus its posted
+  bond, so exploration never risks a large slice of principal.
+- A scout is promoted to Active when it clears all of: at least
+  `promote_min_epochs` active epochs, at least `promote_min_trades` realized
+  closed trades, and cumulative risk-adjusted realized performance at or above
+  `promote_perf_bar`. On promotion its pheromone is seeded from its scout-phase
+  performance, capped at `promote_tau_seed_cap` so a scout cannot enter the main
+  pool at the top of the trail.
+
+Reserving a fixed budget of small tickets is preferred over adding a UCB-style
+optimism bonus to each forager's score. An on-chain confidence bonus would add
+compute and, worse, a manipulation surface (gaming visit counts to inflate the
+bonus). A reserved budget is simple, auditable, and hard-bounds new-agent risk.
+The UCB-bonus approach is recorded as a possible future refinement in section 11.
+
+---
+
