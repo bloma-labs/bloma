@@ -133,3 +133,45 @@ move capital and it does not appear in a trust indicator.**
 
 ---
 
+## 5. Time decay and half-life
+
+Evaporation is the mechanism that makes old performance fade. With no new
+deposit, a trail retains `(1 - rho)` of its pheromone each epoch, so after `n`
+epochs it holds `(1 - rho)^n` of where it started. The **half-life** `H`, the
+number of epochs for an un-replenished trail to lose half its pheromone, is
+
+```
+(1 - rho)^H = 1/2      =>      H = ln 2 / ( -ln(1 - rho) )
+rho = 1 - 2^(-1/H)
+```
+
+Choose the half-life in real time, then derive `rho` from the epoch length:
+
+| Half-life H (epochs) | rho | With weekly epochs |
+|---|---|---|
+| 1 | 0.5000 | half-life 1 week |
+| 2 | 0.2929 | half-life 2 weeks |
+| 3 | 0.2063 | half-life 3 weeks |
+| 4 | 0.1591 | half-life ~1 month |
+| 6 | 0.1091 | half-life ~1.5 months |
+| 8 | 0.0830 | half-life ~2 months |
+| 13 | 0.0519 | half-life ~3 months |
+
+**Default: `rho = 0.16` on a weekly epoch, a half-life of about four weeks.**
+The reasoning: a strategy edge in crypto markets is non-stationary and regimes
+shift on the scale of weeks, so the colony must forget an edge that has died; but
+a single bad week is mostly noise, so the half-life must be long enough that one
+epoch does not erase a genuinely good trail. Four weeks sits between those two
+failure modes. At `rho = 0.16`, an un-replenished trail falls to 10 percent of
+its pheromone after about 13 epochs (`ln 0.1 / ln 0.84 ~ 13.2`), roughly three
+months, which is a reasonable "fully forgotten" horizon. `rho` is an on-chain
+config value and can be retuned.
+
+This is not decoration. Weighting recent observations more than old ones by a
+geometric factor is exactly how Discounted-UCB handles non-stationary bandits
+(Garivier and Moulines, 2011): it discounts a reward seen `k` steps ago by
+`gamma^k`. Our `(1 - rho)^k` is the same geometric discount, so `(1 - rho)` plays
+the role of the discount factor `gamma`. Section 9 develops the bandit view.
+
+---
+
