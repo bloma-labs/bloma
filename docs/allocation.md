@@ -204,3 +204,50 @@ The UCB-bonus approach is recorded as a possible future refinement in section 11
 
 ---
 
+## 7. From pheromone to weights
+
+Given the pheromone vector over the Active foragers, weights are computed by
+normalize, then cap, then drop, then renormalize:
+
+```
+1.  raw_f      = tau_f / sum_g tau_g                 over Active foragers
+2.  cap:       any w_f > w_max is set to w_max; the removed excess is
+               redistributed proportionally among the un-capped foragers;
+               repeat until no un-capped forager exceeds w_max
+               (bounded water-filling)
+3.  drop:      any post-cap w_f < w_drop is set to 0; that forager is flagged
+               for demotion to Scout and its capital is withdrawn to the vault;
+               the freed weight is redistributed among the survivors
+4.  final w_f  are the target weights;  sum_f w_f = 1
+```
+
+- `w_max` (default 0.20) caps single-forager concentration so that no one agent
+  failing can take an outsized share of allocated capital, and so the pool is
+  spread over at least `1 / w_max` foragers. It is the main systemic-risk control
+  on the allocation side; it complements sub-account isolation and per-forager
+  position limits in `risk.md`.
+- `w_drop` (default 0.03) is a **demotion threshold, not a floor.** A forager
+  whose trail has decayed below it is removed from the main pool and sent back to
+  the Scout Sandbox, rather than being propped up at a minimum weight. Propping
+  up losers would fight the entire pheromone mechanism; dropping them is the
+  point.
+
+### 7.1 Feasibility constraint (edge case)
+
+The cap is only feasible if `N_active * w_max >= 1`; otherwise the weights cannot
+sum to 1 while every weight stays at or below `w_max`. Two consequences the
+implementer must handle:
+
+- If `N_active * w_max < 1`, the effective cap relaxes to
+  `max(w_max, 1/N_active + margin)`, and any capital that still cannot be placed
+  under the cap stays in the vault as reported un-deployed reserve. It is never
+  hidden or silently over-concentrated.
+- At exactly `N_active = 1/w_max` the cap forces every weight to `w_max`, so
+  pheromone can no longer express any preference. Therefore `w_max` should be set
+  comfortably above `1 / target_forager_count`. With the default `w_max = 0.20`,
+  the colony wants well more than five Active foragers for weighting to breathe;
+  the numeric example below deliberately uses a looser `w_max = 0.35` precisely
+  because it has only five foragers.
+
+---
+
