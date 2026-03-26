@@ -198,3 +198,39 @@ trail continuously while only realized results replenish it.
 
 ---
 
+## 5. Where the allocation arithmetic runs
+
+This is the central architecture trade-off. The weight computation involves a
+bounded non-linear deposit and an iterative cap-and-redistribute step (see
+`allocation.md` sections 3 and 5). Solana programs run under a compute-unit
+budget and have no floating point, so the options are:
+
+- **Option A, fully on-chain.** The program stores pheromone in fixed-point and
+  does evaporation, deposit, and capping on-chain. Fully trust-minimized, but
+  the bounded deposit transform and the water-filling cap loop must be done in
+  integer fixed-point, and cost grows with the forager count.
+- **Option B, off-chain compute with on-chain commit.** The pheromone-engine
+  computes weights and the program stores them. Cheapest, but the program would
+  be trusting an off-chain number to move capital, which violates principle 1.
+- **Option C, off-chain proposer with on-chain verifier (recommended).** The
+  realized-performance inputs are committed on-chain by forager-runtime. The
+  program itself performs the pheromone update (evaporation plus a fixed-point,
+  bounds-checked deposit) and the capping, because those are cheap per forager
+  and the forager count is in the tens, not thousands. The pheromone-engine runs
+  the identical math off-chain only as a mirror and to drive the Trail Board;
+  its numbers never move capital on their own.
+
+Recommendation: **Option C.** Keep the state transition on-chain where it is
+cheap and consensus-critical, compute the expensive non-linear deposit factor in
+a way the program can cheaply re-check (submit the deposit alongside the realized
+input; the program re-derives it with a fixed-point approximation and rejects it
+if it is out of the `[-Q, +Q]` bound or the wrong sign), and treat the off-chain
+engine as a proposer and mirror, never as an authority. The capping loop is
+bounded by the active-forager count, which the config keeps small enough to fit
+the compute budget; if the colony grows past that, the epoch update is chunked
+across instructions. This is an implementation detail the anchor-program
+engineer owns; the invariant they must preserve is that **no off-chain value
+moves capital without an on-chain check of the same value.**
+
+---
+
