@@ -251,3 +251,30 @@ implementer must handle:
 
 ---
 
+## 8. Epochs and rebalancing cost
+
+- An **epoch** is a fixed wall-clock period, default 7 days, range 1 to 30 days.
+  Long enough to realize meaningful performance and to amortize rebalancing cost,
+  short enough to adapt to regime change.
+- Rebalancing at the epoch boundary moves capital between sub-accounts and costs
+  slippage and gas. Two controls keep churn down:
+  - **No-trade band `reband_band`** (default 2 percent): if a forager's target
+    weight moved less than the band from its current weight, it is not rebalanced
+    this epoch. Small pheromone wiggles do not trigger costly trades.
+  - **Turnover cap `turnover_cap`** (default 25 percent of the pool per epoch):
+    total capital moved per epoch is bounded; if desired moves exceed it, all
+    moves are scaled down and the target is approached gradually over several
+    epochs. This bounds worst-case slippage.
+- Rebalancing is executed in the vault base asset and netted, so only the delta
+  between current and target moves, not gross positions. Rebalancing cost is
+  socialized across the vault; the band and cap keep the expected cost small.
+
+There is a real tension here: chasing pheromone perfectly every epoch maximizes
+responsiveness but maximizes transaction cost, while a wide band and low turnover
+cap minimize cost but lag the signal. The defaults lean slightly toward cost
+control, on the view that the pheromone signal is itself smoothed (bounded
+deposits plus a multi-week half-life) and does not need to be tracked tick for
+tick.
+
+---
+
