@@ -17,3 +17,12 @@ venv/
 # Node
 node_modules/
 npm-debug.log*
+
+# Environment and secrets. Never commit a populated environment file.
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+id.json
+*-keypair.json
