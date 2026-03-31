@@ -234,3 +234,31 @@ moves capital without an on-chain check of the same value.**
 
 ---
 
+## 6. Forager lifecycle
+
+```mermaid
+%%{init: {'theme':'base','themeVariables':{'background':'#0E0F0C','primaryColor':'#5C4B3A','primaryTextColor':'#E4E0D2','primaryBorderColor':'#B6E04A','lineColor':'#B6E04A','textColor':'#E4E0D2','nodeTextColor':'#E4E0D2','fontFamily':'Public Sans, sans-serif'}}}%%
+stateDiagram-v2
+  [*] --> Scout: register + post bond
+  Scout --> Active: promotion bar cleared
+  Scout --> Exited: probation failed
+  Active --> Probation: drawdown or rule breach
+  Probation --> Active: recovered within grace
+  Probation --> Slashed: threshold breached
+  Active --> Slashed: hard breach
+  Slashed --> Exited: bond slashed, capital withdrawn
+  Active --> Exited: voluntary unwind
+  Exited --> [*]
+```
+
+- **Scout** foragers trade only scout tickets from the exploration budget. Their
+  pheromone is seeded from scout-phase realized performance at promotion.
+- **Active** foragers receive pheromone-weighted allocation from the main pool.
+- **Probation** freezes new allocation and starts a grace window during which
+  the forager must recover or be slashed.
+- **Slashed / Exited** withdraws capital back to the vault and settles the bond.
+
+Full trigger thresholds and bond mechanics are in `risk.md`.
+
+---
+
