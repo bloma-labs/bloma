@@ -124,3 +124,26 @@ What isolation does and does not do, stated honestly:
 
 ---
 
+## 3. Position limits
+
+Every forager has a position-limit profile, enforced pre-trade by
+forager-runtime and bounded per-epoch on-chain:
+
+- **Maximum allocation weight** `w_max` (default 20 percent of the main pool),
+  the single-forager concentration cap from `allocation.md`.
+- **Maximum leverage: zero.** Foragers trade unlevered spot only. No borrowing,
+  no margin, no leveraged perpetual exposure, no collateralized loops. This is a
+  hard rule, not a default, because leverage converts a bad epoch into a
+  liquidation that isolation and bonds cannot fully contain.
+- **Allowed assets: a whitelist with a liquidity floor.** Only assets and venues
+  on the config whitelist, each meeting a minimum depth and volume threshold so
+  positions can actually be unwound at rebalancing and demotion. No long-tail or
+  illiquid tokens.
+- **Single-asset concentration** within a sub-account is capped
+  (`max_single_asset`, default 40 percent, base asset excepted) so a forager
+  cannot put its whole slice into one thin market.
+- **Per-epoch realized loss limit** (`epoch_loss_limit`, default 10 percent)
+  which, if breached, triggers probation and pauses new trading for that forager.
+
+---
+
