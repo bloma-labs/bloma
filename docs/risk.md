@@ -95,3 +95,32 @@ back to the vault, and it must re-enter through the Scout Sandbox to trade again
 
 ---
 
+## 2. Isolated sub-account model
+
+Each forager trades from its own program-derived sub-account, and this boundary
+is enforced by the program, not promised by convention:
+
+- A forager operator can authorize trades **only** from its own sub-account. The
+  sub-account PDA is derived from the forager record, and the program checks the
+  signer is that forager's operator (`has_one`, seeds, bump; see `security.md`).
+- A sub-account can send capital **only** to whitelisted venue programs for
+  trading and **only back to the Brood Vault** for withdrawal. It cannot transfer
+  to an arbitrary address. A forager cannot drain to itself.
+- A forager's realized loss is bounded to its own sub-account balance plus its
+  bond. It cannot reach another forager's sub-account or the un-deployed
+  principal in the vault.
+
+What isolation does and does not do, stated honestly:
+
+- It **does** contain blast radius and control: one agent's bug, exploit, or
+  blow-up cannot move or lose another agent's capital, and cannot exceed its own
+  allocation weight (capped at `w_max`, default 20 percent, in
+  `allocation.md`).
+- It **does not** make depositors immune to aggregate performance. KOLNY is a
+  pooled fund: total net asset value is the sum of all sub-accounts, so a large
+  loss in one forager still lowers every depositor's share value by that
+  forager's slice. Isolation caps how large that slice can be and the bond and
+  cache cushion it; nothing makes a pooled fund's aggregate result immune to loss.
+
+---
+
