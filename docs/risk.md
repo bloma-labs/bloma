@@ -147,3 +147,54 @@ forager-runtime and bounded per-epoch on-chain:
 
 ---
 
+## 4. Insurance cache (Risk Cache)
+
+The cache is the colony's stored food: a reserve that absorbs losses beyond a
+forager's own capital before they reach depositors.
+
+### 4.1 Accrual sources
+
+1. A cut of realized colony profit, `cache_accrual` (default 10 percent of
+   realized profit), routed to the cache until the reserve target is met.
+2. The cache-bound half of every slashed bond (section 1.4).
+3. Optional `$KOLNY` staked into the cache by holders who choose to underwrite
+   colony risk in exchange for a premium share. Stakers are paid from accrual and
+   are first to absorb a shortfall among cache sources, which is disclosed to
+   them plainly.
+
+### 4.2 Loss-absorption waterfall
+
+When a forager realizes a loss, it is absorbed in this order:
+
+```
+1. the forager's own sub-account   (its allocated capital falls first)
+2. the forager's bond              (slashed portion reimburses the vault)
+3. the Risk Cache                  (covers residual up to the cache balance)
+4. depositor net asset value       (any remainder is borne by depositors)
+```
+
+Steps 2 and 3 are what give depositors a cushion. Step 4 is the honest limit:
+**the cushion is finite.** If bonds and the cache are exhausted, the remaining
+loss reduces depositor share value. KOLNY never claims otherwise.
+
+### 4.3 Reserve target and profit routing
+
+The cache targets a reserve ratio `cache_reserve_target` (default 4 percent of
+value under colony). Below target, profit routing to the cache increases and new
+risk-taking capacity is tightened. Above target, surplus can flow to `$KOLNY`
+buyback-and-burn, which is the token's link to colony performance. The reserve
+ratio, the cache balance, and total burned are public at all times.
+
+### 4.4 Depletion scenario (disclosed, not hidden)
+
+The cache is sized for idiosyncratic, uncorrelated forager failures. Its clear
+failure mode is **correlated loss**: a market regime shock in which many foragers
+lose at once can outrun both bonds and cache, so step 4 of the waterfall is
+reached and depositors take a loss. Mitigations reduce but do not eliminate this:
+the concentration cap and asset whitelist limit correlation, the zero-leverage
+rule removes liquidation cascades, and the reserve target builds a buffer in good
+regimes. The Trail Board must show the current reserve ratio so depositors can
+see how much cushion actually remains at any moment.
+
+---
+
