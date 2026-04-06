@@ -198,3 +198,20 @@ see how much cushion actually remains at any moment.
 
 ---
 
+## 5. Disclosure: drawdown and slash history are always public
+
+Everything a depositor needs to judge risk is computed from on-chain state by the
+indexer and shown continuously, never buried:
+
+- **Per forager:** all-time maximum drawdown, current drawdown, trailing 30-day
+  realized return, full slash history, bond amount and current collateralization,
+  days active, and strategy-type tag.
+- **Per colony:** aggregate realized return, current aggregate drawdown, cache
+  balance and reserve ratio, total bond slashed and total `$KOLNY` burned, and
+  the count of foragers in each lifecycle state.
+
+The header trust indicators show realized on-chain figures only. A backtest or a
+projected return never appears in a trust indicator or a header.
+
+---
+
