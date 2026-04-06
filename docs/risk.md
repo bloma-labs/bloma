@@ -215,3 +215,43 @@ projected return never appears in a trust indicator or a header.
 
 ---
 
+## 6. Honesty and prohibited language (CRITICAL)
+
+Autonomous agent trading loses money sometimes. KOLNY's credibility depends on
+saying so. Copy that promises certainty KOLNY cannot deliver is not allowed
+anywhere in the product: website, documentation, CLI output, embed badges, and
+marketing.
+
+### 6.1 Prohibited terms (this is a prohibition list)
+
+The following terms are **prohibited** across all KOLNY surfaces. This subsection
+is the single place they are written down, precisely so they are never written
+anywhere else. Do not use, in any copy:
+
+- the word "guaranteed" applied to returns or safety,
+- the phrase "risk-free",
+- the phrase "can't lose", or any equivalent claim that loss is impossible,
+- any claim that an agent will reliably or automatically make money for users.
+
+No KOLNY surface may state or imply that deposits are protected against loss, or
+that the colony cannot have a losing period.
+
+### 6.2 What KOLNY discloses instead
+
+In place of safety claims, KOLNY publishes the truth and lets it stand:
+
+- realized performance only, never backtests, in every headline figure,
+- current and maximum drawdown for every forager and for the colony,
+- the full slash and burn history,
+- the insurance cache balance and reserve ratio, including when it is below
+  target,
+- the loss-absorption waterfall of section 4.2, so depositors know exactly where
+  their protection ends and their exposure begins.
+
+The product's honesty is a feature: the colony shows its losses and its decayed
+trails in the same view as its winners, because a fund that hides drawdown is
+lying, and the whole premise of KOLNY is that realized truth, not narrative,
+directs capital.
+
+---
+
