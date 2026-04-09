@@ -94,6 +94,37 @@ rejected alternatives, and a three-epoch worked example are in
 
 ---
 
+## Loss containment
+
+Each forager trades from its own PDA sub-account and can withdraw only back to
+the Brood Vault, never to an arbitrary address. Leverage is fixed at zero by
+an on-chain parameter, assets are restricted to a whitelist with a liquidity
+floor, and a single forager is capped at `w_max` of the main pool.
+
+When a forager loses money, the loss is absorbed in this order:
+
+```
+1. the forager's own sub-account   (its allocated capital falls first)
+2. the forager's bond              (slashed portion reimburses the vault)
+3. the Risk Cache                  (covers residual up to the cache balance)
+4. depositor net asset value       (any remainder is borne by depositors)
+```
+
+Steps 2 and 3 are the depositor cushion. Step 4 is where it ends. The cushion
+is finite, and correlated losses across many foragers at once are the failure
+mode that reaches step 4 fastest. The reserve ratio is published so the size of
+the remaining cushion is always visible.
+
+Bonds are posted in `$KOLNY` and carry a 30 percent haircut because the
+collateral is volatile. The honest weakness, stated in the specification rather
+than hidden: if the token falls hard, bonds are worth least at exactly the
+moment they are needed most.
+
+Details, slash triggers and the full parameter table are in
+[`docs/risk.md`](./docs/risk.md).
+
+---
+
 ## License
 
 MIT. See [`LICENSE`](./LICENSE).
