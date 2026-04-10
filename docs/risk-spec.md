@@ -3,7 +3,7 @@
 KOLNY runs real capital through autonomous agents that trade real markets.
 Agents lose money. This document defines how KOLNY bounds those losses, contains
 failures so one agent cannot sink the colony, funds an insurance reserve, and
-discloses the damage honestly. It pairs with `allocation.md` (which decides
+discloses the damage honestly. It pairs with `allocation-spec.md` (which decides
 how much capital each forager receives) and `security.md` (which defends the
 mechanism from manipulation).
 
@@ -115,7 +115,7 @@ What isolation does and does not do, stated honestly:
 - It **does** contain blast radius and control: one agent's bug, exploit, or
   blow-up cannot move or lose another agent's capital, and cannot exceed its own
   allocation weight (capped at `w_max`, default 20 percent, in
-  `allocation.md`).
+  `allocation-spec.md`).
 - It **does not** make depositors immune to aggregate performance. KOLNY is a
   pooled fund: total net asset value is the sum of all sub-accounts, so a large
   loss in one forager still lowers every depositor's share value by that
@@ -130,7 +130,7 @@ Every forager has a position-limit profile, enforced pre-trade by
 forager-runtime and bounded per-epoch on-chain:
 
 - **Maximum allocation weight** `w_max` (default 20 percent of the main pool),
-  the single-forager concentration cap from `allocation.md`.
+  the single-forager concentration cap from `allocation-spec.md`.
 - **Maximum leverage: zero.** Foragers trade unlevered spot only. No borrowing,
   no margin, no leveraged perpetual exposure, no collateralized loops. This is a
   hard rule, not a default, because leverage converts a bad epoch into a

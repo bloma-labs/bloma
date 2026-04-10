@@ -9,8 +9,8 @@ thicken and attract more capital; weak trails fade through time decay and drain.
 No human picks the winning strategy. The colony does.
 
 This document defines the system boundaries, the components, and the data flow.
-The allocation mathematics live in `allocation.md`, the loss-containment
-model in `risk.md`, and the trust model in `security.md`.
+The allocation mathematics live in `allocation-spec.md`, the loss-containment
+model in `risk-spec.md`, and the trust model in `security.md`.
 
 ---
 
@@ -25,10 +25,10 @@ model in `risk.md`, and the trust model in `security.md`.
    before they can move capital.
 3. **Realized performance only.** Allocation reacts to realized, settled,
    fee-netted results. Unrealized marks and backtests never move capital and
-   never appear in the header trust indicators. See `allocation.md` section 4.
+   never appear in the header trust indicators. See `allocation-spec.md` section 4.
 4. **Failure is isolated by construction.** Each forager trades from its own
    sub-account with its own position limits. One forager blowing up cannot reach
-   another forager's balance or the un-allocated principal. See `risk.md`.
+   another forager's balance or the un-allocated principal. See `risk-spec.md`.
 5. **The allocation is reproducible.** Given the on-chain inputs (per-forager
    realized performance, current pheromone, config), anyone can recompute the
    next epoch's weights and get the same answer. This is what makes the Trail
@@ -114,7 +114,7 @@ flowchart TB
 - **Forager Registry** holds one record per forager: operator authority, bond
   amount and escrow, lifecycle status (Scout, Active, Probation, Slashed,
   Exited), the address of its isolated sub-account, and its position-limit
-  profile. Registration requires a `$KOLNY` bond. See `risk.md` section 1.
+  profile. Registration requires a `$KOLNY` bond. See `risk-spec.md` section 1.
 - **Brood Vault** is the single entry point for depositors. A deposit of the
   base asset mints vault shares proportional to net asset value. The vault holds
   un-deployed base asset and is the accounting root; forager sub-accounts are
@@ -129,10 +129,10 @@ flowchart TB
   weights. See section 5 for where the arithmetic runs.
 - **Slash module** executes bond slashing when a trigger fires (loss threshold,
   rule violation, or non-response) and routes the slashed bond between burn and
-  the Risk Cache. See `risk.md` section 1.
+  the Risk Cache. See `risk-spec.md` section 1.
 - **Risk Cache** is the insurance reserve. It accrues from a cut of realized
   colony profit and from slashed bonds, and it is drawn first when a covered
-  shortfall occurs. See `risk.md` section 4.
+  shortfall occurs. See `risk-spec.md` section 4.
 - The program **IDL is published** to the public repository so any
   client, the CLI, and the Agent SDK build against a pinned interface.
 
@@ -150,7 +150,7 @@ flowchart TB
 - **scout-sandbox** manages probationary foragers. New foragers receive small,
   fixed scout tickets funded from the exploration budget and are evaluated for
   promotion once they clear the minimum-epochs, minimum-trades, and
-  performance bars. See `allocation.md` section 6.
+  performance bars. See `allocation-spec.md` section 6.
 - **risk-cache service** watches per-forager drawdown and rule compliance,
   raises slash proposals, and manages cache accrual and reserve-ratio targets.
 - **indexer API** (the `service` app) reads chain state and
@@ -202,7 +202,7 @@ trail continuously while only realized results replenish it.
 
 This is the central architecture trade-off. The weight computation involves a
 bounded non-linear deposit and an iterative cap-and-redistribute step (see
-`allocation.md` sections 3 and 5). Solana programs run under a compute-unit
+`allocation-spec.md` sections 3 and 5). Solana programs run under a compute-unit
 budget and have no floating point, so the options are:
 
 - **Option A, fully on-chain.** The program stores pheromone in fixed-point and
@@ -258,7 +258,7 @@ stateDiagram-v2
   the forager must recover or be slashed.
 - **Slashed / Exited** withdraws capital back to the vault and settles the bond.
 
-Full trigger thresholds and bond mechanics are in `risk.md`.
+Full trigger thresholds and bond mechanics are in `risk-spec.md`.
 
 ---
 

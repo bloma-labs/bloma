@@ -90,7 +90,7 @@ minimum number of realized closed trades, and a performance bar.
 
 Full derivation, the parameter table with on-chain field names and ranges, the
 rejected alternatives, and a three-epoch worked example are in
-[`docs/allocation.md`](./docs/allocation.md).
+[`docs/allocation-spec.md`](./docs/allocation-spec.md).
 
 ---
 
@@ -121,7 +121,7 @@ than hidden: if the token falls hard, bonds are worth least at exactly the
 moment they are needed most.
 
 Details, slash triggers and the full parameter table are in
-[`docs/risk.md`](./docs/risk.md).
+[`docs/risk-spec.md`](./docs/risk-spec.md).
 
 ---
 

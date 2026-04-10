@@ -91,7 +91,7 @@ enters `perf_f` and never moves capital. Backtests and paper results never enter
 `perf_f`. This rule is what lets the header advertise realized performance
 honestly, and it removes the largest manipulation surface: you cannot inflate
 your trail by holding a losing position open or by marking your own book. See
-`risk.md` and `security.md` for the settlement-finality and oracle defenses.
+`risk-spec.md` and `security.md` for the settlement-finality and oracle defenses.
 
 ---
 
@@ -225,7 +225,7 @@ normalize, then cap, then drop, then renormalize:
   failing can take an outsized share of allocated capital, and so the pool is
   spread over at least `1 / w_max` foragers. It is the main systemic-risk control
   on the allocation side; it complements sub-account isolation and per-forager
-  position limits in `risk.md`.
+  position limits in `risk-spec.md`.
 - `w_drop` (default 0.03) is a **demotion threshold, not a floor.** A forager
   whose trail has decayed below it is removed from the main pool and sent back to
   the Scout Sandbox, rather than being propped up at a minimum weight. Propping
