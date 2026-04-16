@@ -65,3 +65,50 @@ https://en.wikipedia.org/wiki/Ant_colony_optimization_algorithms `[verified]`.
 
 ---
 
+## B. Multi-armed bandits: exploration, exploitation, non-stationarity
+
+These justify the exploration budget and the time decay in `allocation-spec.md`
+sections 5, 6, and 9.
+
+**Auer, P., Cesa-Bianchi, N., and Fischer, P. (2002).** "Finite-time Analysis of
+the Multiarmed Bandit Problem." *Machine Learning*, 47, 235-256.
+doi:10.1023/A:1013689704352. Accessible institutional record:
+https://pure.unileoben.ac.at/en/publications/finite-time-analysis-of-the-multiarmed-bandit-problem/
+`[verified]`.
+- Maps to: UCB1, the canonical exploration-exploitation policy and the baseline
+  KOLNY reasons against. UCB1 assumes each arm's reward distribution is
+  stationary, so it will keep exploiting an arm that was good long ago. That
+  failure is exactly why KOLNY adds evaporation.
+
+**Garivier, A., and Moulines, E. (2011).** "On Upper-Confidence Bound Policies
+for Non-Stationary Bandit Problems." *Proceedings of Algorithmic Learning Theory
+(ALT 2011)*; preprint arXiv:0805.3415 (2008).
+https://arxiv.org/abs/0805.3415 `[verified]`. Implementation reference
+(Discounted-UCB and Sliding-Window-UCB):
+https://smpybandits.github.io/NonStationaryBandits.html `[verified]`.
+- Maps to: the formal backbone of time decay. Discounted-UCB weights a reward
+  seen `k` steps ago by `gamma^k`. KOLNY's evaporation makes an old deposit worth
+  `(1 - rho)^k` after `k` epochs, so `(1 - rho)` is the discount factor `gamma`.
+  Time decay is the standard remedy for non-stationarity, not a cosmetic choice.
+
+**Thompson, W. R. (1933).** "On the Likelihood That One Unknown Probability
+Exceeds Another in View of the Evidence of Two Samples." *Biometrika*, 25(3-4),
+285-294. doi:10.1093/biomet/25.3-4.285. Publisher record (abstract accessible,
+full text gated):
+https://academic.oup.com/biomet/article-abstract/25/3-4/285/200862 `[verified]`.
+- Maps to: Thompson Sampling, the alternative of allocating in proportion to each
+  forager's probability of being the best, drawn from a posterior over returns.
+  Recorded in `allocation-spec.md` section 9 as a candidate future allocation
+  mode.
+
+**Chapelle, O., and Li, L. (2011).** "An Empirical Evaluation of Thompson
+Sampling." *Advances in Neural Information Processing Systems 24 (NeurIPS 2011)*.
+Author PDF:
+https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/thompson.pdf
+`[verified, PDF]`.
+- Maps to: the empirical case that Thompson Sampling is competitive with, and
+  often better than, UCB in practice. This is why Thompson Sampling is worth
+  keeping as a future option rather than dismissing.
+
+---
+
