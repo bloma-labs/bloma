@@ -278,3 +278,41 @@ tick.
 
 ---
 
+## 9. The colony as a non-stationary bandit
+
+Framed as a multi-armed bandit, each forager is an arm, and its realized return
+is a noisy reward whose distribution drifts over time as market regimes change
+and as the agent's own model ages. This framing explains every choice above:
+
+- **Exploitation** is allocating more capital to trails with high recent
+  performance (high pheromone).
+- **Exploration** is the reserved Scout budget that keeps funding unproven arms
+  so their value can be learned (section 6).
+- **Non-stationarity** is why evaporation exists. Stationary policies such as
+  UCB1 (Auer, Cesa-Bianchi, and Fischer, 2002) assume each arm's reward
+  distribution is fixed and will keep exploiting an arm that was good long ago.
+  Discounted-UCB (Garivier and Moulines, 2011) fixes this by discounting old
+  rewards geometrically by `gamma^k`; KOLNY's `(1 - rho)^k` evaporation is that
+  same discount, which is the formal justification for time decay.
+
+KOLNY deliberately departs from textbook bandit policies in two ways, and the
+departures are the design:
+
+- A bandit policy usually **selects one arm** (argmax of an index). A fund must
+  **diversify**, so KOLNY allocates capital **proportionally** to discounted,
+  risk-adjusted performance, then applies hard caps. Concentration is a systemic
+  risk, so putting all capital on the current-best arm is exactly what must be
+  avoided.
+- Exploration is a **reserved capital budget with bounded tickets**, not an
+  additive optimism bonus, for the on-chain simplicity and risk-bounding reasons
+  in section 6.
+
+Thompson Sampling (Thompson, 1933; empirically revived by Chapelle and Li, 2011)
+is a natural alternative weighting: allocate to each forager in proportion to its
+probability of being the best, sampled from a posterior over returns. It is
+recorded as a candidate for a future allocation mode; the pheromone rule is kept
+as the default because it is transparent, cheap to verify on-chain, and maps
+cleanly onto the colony metaphor that the whole product is built around.
+
+---
+
