@@ -316,3 +316,109 @@ cleanly onto the colony metaphor that the whole product is built around.
 
 ---
 
+## 10. Worked example: five foragers, three epochs
+
+Illustrative parameters (chosen for clarity, not the production defaults):
+`rho = 0.20` (retain 80 percent per epoch), deposit `D = Q * tanh(perf / s)` with
+`Q = 1.0` and `s = 0.10`, all foragers seeded at `tau = 1.000`, `w_max = 0.35`,
+`w_drop = 0.03`, total value under colony 1,000,000 with a 10 percent Scout
+budget, so `main_pool = 900,000`.
+
+The five foragers are written to show five behaviors: a steady star (A), an early
+winner that goes flat (B), a mediocre steady hand (C), a loser (D), and a late
+bloomer (E).
+
+### 10.1 Realized performance, deposit, and pheromone
+
+`perf` is the risk-adjusted realized performance of the epoch; `D = tanh(perf /
+0.10)`; pheromone entering the next epoch is `tau' = max(0, 0.8 * tau + D)`.
+
+| Forager | perf e1 | perf e2 | perf e3 | D e1 | D e2 | D e3 |
+|---|---|---|---|---|---|---|
+| A | +0.15 | +0.12 | +0.10 | +0.905 | +0.834 | +0.762 |
+| B | +0.10 | +0.05 | 0.00 | +0.762 | +0.462 | 0.000 |
+| C | +0.02 | +0.03 | +0.02 | +0.197 | +0.291 | +0.197 |
+| D | -0.05 | -0.10 | -0.08 | -0.462 | -0.762 | -0.664 |
+| E | -0.02 | +0.07 | +0.15 | -0.197 | +0.604 | +0.905 |
+
+Pheromone trajectory (start of each epoch; `tau^1 = 1.000` for all):
+
+| Forager | tau start e1 | tau start e2 | tau start e3 | tau start e4 |
+|---|---|---|---|---|
+| A | 1.000 | 1.705 | 2.198 | 2.520 |
+| B | 1.000 | 1.562 | 1.711 | 1.369 |
+| C | 1.000 | 0.997 | 1.089 | 1.069 |
+| D | 1.000 | 0.338 | 0.000 | 0.000 |
+| E | 1.000 | 0.603 | 1.086 | 1.774 |
+
+The decimal table above is rounded to three places for reading. **The normative
+input for every implementation is the FP6 integer vector below** (scale `1e-6`),
+which is what the on-chain program actually stores and what the TypeScript and
+Python mirrors must reproduce exactly. The decimal table is derivation evidence,
+not a target: reproducing it alone is insufficient, because rounding an
+intermediate step propagates. The `E / e3` cell reads `1.086` rather than `1.087`
+for exactly that reason, since `0.8 * 0.602625` is `0.482100`, not `0.483`.
+
+| Forager | tau e1 | tau e2 | tau e3 | tau e4 |
+|---|---|---|---|---|
+| A | 1000000 | 1705148 | 2197773 | 2519812 |
+| B | 1000000 | 1561594 | 1711392 | 1369113 |
+| C | 1000000 | 997375 | 1089213 | 1068745 |
+| D | 1000000 | 337883 | 0 | 0 |
+| E | 1000000 | 602625 | 1086468 | 1774322 |
+
+Worked steps for the loser D and the late bloomer E, so the arithmetic is
+checkable:
+
+```
+D:  tau^2 = 0.8*1.000 + (-0.462) = 0.338
+    tau^3 = 0.8*0.338 + (-0.762) = 0.270 - 0.762 = -0.492 -> max(0,.) = 0.000
+    D's trail is extinguished; it is dropped and demoted to Scout.
+
+E:  tau^2 = 0.8*1.000 + (-0.197) = 0.603
+    tau^3 = 0.8*0.6026 + (+0.6044) = 0.4821 + 0.6044 = 1.0865 -> 1.086
+    tau^4 = 0.8*1.0865 + (+0.9051) = 0.8692 + 0.9051 = 1.7743 -> 1.774
+    E starts negative, nearly drops, then overtakes B by epoch 4.
+```
+
+### 10.2 Resulting weights and capital
+
+Weights come from normalizing the start-of-epoch pheromone, then capping at 0.35
+and dropping below 0.03. Capital is `weight * 900,000`.
+
+| Forager | w e1 | $ e1 | w e2 | $ e2 | w e3 | $ e3 |
+|---|---|---|---|---|---|---|
+| A | 0.200 | 180.0k | 0.328 | 294.9k | 0.350 (capped) | 315.0k |
+| B | 0.200 | 180.0k | 0.300 | 270.0k | 0.286 | 257.6k |
+| C | 0.200 | 180.0k | 0.192 | 172.5k | 0.182 | 163.9k |
+| D | 0.200 | 180.0k | 0.065 | 58.4k | 0.000 (demoted) | 0.0 |
+| E | 0.200 | 180.0k | 0.116 | 104.2k | 0.182 | 163.5k |
+
+In epoch 3, A's raw weight is 0.361, above the 0.35 cap, so it is capped and the
+0.011 excess is redistributed across B, C, and E; that is why B, C, and E are
+slightly higher than their raw normalized shares.
+
+### 10.3 Reading the example
+
+- **D, the loser, decays and exits.** Two negative epochs plus evaporation drive
+  its trail from 180k of capital to 58k to zero and a demotion to Scout within
+  two epochs, with no minimum weight to prop it up. Its losses also drive the
+  risk path (probation, then a bond slash) described in `risk-spec.md`; the
+  allocation engine and the risk module act on the same realized numbers.
+- **B, the early winner, is caught by time decay.** B never loses, but its flat
+  epoch 3 deposits nothing, so pure evaporation pulls its pheromone down and E
+  overtakes it by epoch 4 (E 1.774 vs B 1.369). Standing still is punished, which
+  is the whole point of a non-stationary discount.
+- **A, the star, meets the concentration cap.** Its trail keeps thickening until
+  `w_max` binds in epoch 3 and the excess is spread to others, capping how much
+  of the colony can ride one agent.
+- **E, the late bloomer, is saved by exploration.** E begins negative and nearly
+  drops, but the system does not execute underperformers instantly; the grace
+  built into the drop threshold and Scout path lets its improving performance
+  compound into the fastest-rising trail by epoch 4. This is why exploration and
+  patience are structural, not optional.
+- **C is the ballast.** Steady mediocre performance yields a stable mid-size
+  allocation and low turnover.
+
+---
+
