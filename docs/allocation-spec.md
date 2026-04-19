@@ -422,3 +422,37 @@ slightly higher than their raw normalized shares.
 
 ---
 
+## 11. Parameters (Anchor config)
+
+On-chain has no floating point. Rates are stored in basis points (`bps`,
+1e-4). Fixed-point quantities such as pheromone and deposits use a `1e6` scale
+(call it `FP6`). Returns and drawdown are committed in `bps`; note `r` can be
+negative, so it is signed. The performance computation in fixed-point is
+`perf_bps = r_bps - (lambda_bps * DD_bps) / 10000`, and the deposit argument is
+`perf_bps / s_bps`.
+
+| Parameter | On-chain field | Type | Default | Range | Meaning |
+|---|---|---|---|---|---|
+| Evaporation rate `rho` | `rho_bps` | u16 | 1600 | 100..5000 | Per-epoch forgetting; 1600 = 0.16, half-life ~4 epochs |
+| Epoch length | `epoch_duration_secs` | i64 | 604800 | 86400..2592000 | 7 days; 1 to 30 days |
+| Deposit scale `Q` | `deposit_scale_q` | u64 (FP6) | 1000000 | 100000..10000000 | Max per-epoch trail change; 1.0 |
+| Perf scale `s` | `perf_norm_s_bps` | u16 | 1000 | 100..5000 | Return where deposit saturates; 1000 = 10% |
+| Risk aversion `lambda` | `risk_aversion_bps` | u16 | 10000 | 0..50000 | Drawdown penalty weight; 10000 = 1.0x |
+| Max weight `w_max` | `w_max_bps` | u16 | 2000 | 500..4000 | Single-forager cap; 2000 = 20% |
+| Drop threshold `w_drop` | `w_drop_bps` | u16 | 300 | 0..1000 | Demote-and-withdraw below; 300 = 3% |
+| Scout budget | `scout_budget_bps` | u16 | 1000 | 500..2000 | Exploration reserve of TVL; 1000 = 10% |
+| No-trade band | `reband_band_bps` | u16 | 200 | 0..1000 | Skip rebalance if abs(delta w) below; 200 = 2% |
+| Turnover cap | `turnover_cap_bps` | u16 | 2500 | 500..10000 | Max pool fraction moved per epoch; 2500 = 25% |
+| Promote min epochs | `promote_min_epochs` | u8 | 4 | 1..52 | Scout epochs before promotion eligible |
+| Promote min trades | `promote_min_trades` | u16 | 20 | 1..1000 | Realized closed trades required in Scout |
+| Promote perf bar | `promote_perf_bar_bps` | i32 | 0 | -5000..20000 | Min cumulative risk-adj realized perf to promote |
+| Scout ticket size | `scout_ticket_base_units` | u64 | project-set | > 0 | Fixed scout allocation per ticket |
+| Promotion seed cap | `promote_tau_seed_cap` | u64 (FP6) | 1000000 | 0..5000000 | Cap on initial pheromone at promotion |
+| Fixed-point scale | constant | -- | 1e6 | -- | Scale for `tau` and deposits (`FP6`) |
+
+Bond size, slash ratio, drawdown thresholds, and cache accrual are also on-chain
+config but are specified in `risk-spec.md` because they belong to the
+loss-containment model.
+
+---
+
