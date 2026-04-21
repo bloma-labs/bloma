@@ -456,3 +456,31 @@ loss-containment model.
 
 ---
 
+## 12. Alternatives considered and rejected
+
+- **Non-negative deposits (pure ACO).** Faithful to ants, where a bad path is
+  simply not reinforced. Rejected as the default because in a fund a loss must
+  erode a trail *faster* than passive evaporation and must be visible in the
+  pheromone signal. KOLNY keeps the ACO update structure but generalizes the
+  deposit to a signed, bounded value.
+- **Unbounded linear deposit `D = perf`.** Rejected: a single huge epoch, whether
+  a lucky tail or a manipulation, could dominate a trail. The `tanh` bound caps
+  per-epoch influence at `Q`, which is the main defense against grinding and
+  outliers.
+- **Raw return with no risk adjustment.** Rejected: it rewards variance and
+  hidden tail risk. The drawdown penalty makes risk-taking that only paid off by
+  luck cost pheromone.
+- **Softmax / Boltzmann allocation over scores.** A smooth alternative to
+  normalize-and-cap, but its temperature is hard to reason about against hard
+  concentration caps and it never allocates exactly zero to a dead trail.
+  Explicit normalize, hard cap, and drop give auditable bounds and clean
+  demotion. The softmax temperature is noted as an alternative exploration knob.
+- **UCB optimism bonus per forager.** A principled exploration mechanism, but it
+  adds on-chain compute and a manipulation surface around visit counts. Deferred
+  in favor of a reserved exploration budget; a candidate future refinement.
+- **Winner-take-all or top-k selection.** Rejected: brittle at rank boundaries,
+  high turnover, and it defeats diversification, which is the reason a colony
+  exists rather than a single agent.
+
+---
+
