@@ -255,3 +255,23 @@ directs capital.
 
 ---
 
+## 7. Risk parameters (Anchor config)
+
+| Parameter | On-chain field | Type | Default | Range | Meaning |
+|---|---|---|---|---|---|
+| Minimum bond | `min_bond_tokens` | u64 | project-set | > 0 | Floor bond in `$KOLNY` |
+| Bond ratio | `bond_ratio_bps` | u16 | 1000 | 500..5000 | Bond as fraction of allocation; 10% |
+| Bond haircut | `bond_haircut_bps` | u16 | 3000 | 1000..7000 | Over-collateralization vs token price; 30% |
+| Probation drawdown | `dd_probation_bps` | u16 | 1500 | 500..4000 | Current drawdown to enter probation; 15% |
+| Slash drawdown | `dd_slash_bps` | u16 | 3000 | 1000..6000 | Current drawdown to slash; 30% |
+| Epoch loss limit | `epoch_loss_limit_bps` | u16 | 1000 | 300..3000 | Per-epoch realized loss to pause/probate; 10% |
+| Probation grace | `probation_grace_epochs` | u8 | 1 | 1..8 | Epochs to recover before slash |
+| Non-response timeout | `nonresponse_timeout_epochs` | u8 | 2 | 1..8 | Silence before non-response slash |
+| Slash burn share | `slash_burn_bps` | u16 | 5000 | 0..10000 | Seized bond burned; rest to cache; 50% |
+| Max leverage | `max_leverage_x` | u8 | 1 | 1..1 | Unlevered only; borrowing disallowed |
+| Single-asset cap | `max_single_asset_bps` | u16 | 4000 | 1000..10000 | Max one asset in a sub-account; 40% |
+| Cache accrual | `cache_accrual_bps` | u16 | 1000 | 0..5000 | Realized profit routed to cache; 10% |
+| Cache reserve target | `cache_reserve_target_bps` | u16 | 400 | 100..1000 | Target cache/TVL; 4% |
+
+`max_leverage_x` is fixed at 1 by policy; it exists as a field only to make the
+zero-leverage rule explicit and auditable on-chain, not to be raised.
