@@ -484,3 +484,23 @@ loss-containment model.
 
 ---
 
+## 13. Edge cases the implementer must handle
+
+- **Too few foragers for the cap.** Relax the effective cap to
+  `max(w_max, 1/N_active + margin)` and leave unplaceable capital as reported
+  un-deployed reserve. Never silently over-concentrate. See section 7.1.
+- **All foragers negative.** All deposits are negative and all trails decay;
+  weights still normalize among the least-bad, but the drop threshold and the
+  risk triggers pull capital into the cache and Scout and demote the worst. The
+  header shows the negative realized number; the system does not pretend.
+- **New colony cold start.** With no history, all foragers are Scouts, most
+  capital sits un-deployed or in the cache, and only the exploration budget moves
+  until the first promotions establish trails.
+- **Determinism.** All arithmetic is fixed-point with a fixed rounding rule so
+  the on-chain update and the off-chain mirror agree exactly. Pheromone ties are
+  broken by forager registration order.
+- **Inactive forager.** No closed trades gives `perf = 0`, deposit 0, and pure
+  evaporation; prolonged inactivity is separately a non-response slash trigger in
+  `risk-spec.md`.
+- **Rebalancing churn.** The no-trade band and turnover cap prevent small
+  pheromone changes from generating trades and bound per-epoch slippage.
