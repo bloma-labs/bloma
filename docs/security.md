@@ -41,3 +41,37 @@ passed-in account's contents without proving what it is.
 
 ---
 
+## 2. Authority model
+
+Three roles, each with a strictly bounded set of actions. The design goal is that
+no single role can both value capital and redirect it to itself.
+
+| Action | Admin (multisig) | Forager operator | Depositor |
+|---|---|---|---|
+| Set config within ranges | Yes | No | No |
+| Manage asset/venue whitelist | Yes | No | No |
+| Emergency pause | Yes | No | No |
+| Register forager, post bond | No | Yes (self) | No |
+| Trade from own sub-account within limits | No | Yes (self) | No |
+| Submit realized-performance commit | No | Yes (self) | No |
+| Request unwind of own sub-account | No | Yes (self) | No |
+| Deposit and mint shares | No | No | Yes (self) |
+| Withdraw and burn own shares | No | No | Yes (self) |
+| Move another account's capital | No | No | No |
+| Mint shares without deposit | No | No | No |
+| Send capital to an arbitrary address | No | No | No |
+
+Key boundaries:
+
+- **Admin** tunes the system and can pause in an emergency, but cannot touch
+  individual depositor balances or sub-account capital, cannot mint shares, and
+  cannot redirect capital anywhere. Admin actions that change economics are
+  bounded to the config ranges and should sit behind a timelock (section 4).
+- **Forager operators** act only on their own sub-account and only within their
+  position-limit profile. They cannot change their own bond requirement,
+  self-promote out of the Scout Sandbox, or reach depositor funds.
+- **Depositors** move only their own shares. They have no say in allocation,
+  which is the point: the colony allocates, not the depositor.
+
+---
+
