@@ -75,3 +75,38 @@ Key boundaries:
 
 ---
 
+## 3. Price and performance trust
+
+Two numbers can be attacked: the prices used to value assets and bonds, and the
+realized performance used to update pheromone.
+
+### 3.1 Oracle discipline
+
+- Prices for asset marking, base-asset valuation, and `$KOLNY` bond valuation
+  come from a robust oracle (for example Pyth or Switchboard), never a single-DEX
+  spot price, which is cheap to manipulate.
+- Every oracle read enforces a **staleness check** (reject prices older than a
+  small slot bound) and a **confidence check** (reject when the oracle's
+  confidence interval is too wide), plus sanity bounds. A trade or valuation that
+  depends on a stale or low-confidence price is refused rather than guessed.
+
+### 3.2 Realized performance is reconciled, not self-reported
+
+The pheromone deposit uses realized, closed-trade performance
+(`allocation-spec.md` sections 2 and 4). The attack is to fake that number. The
+core defense is that performance is **derived from the sub-account's on-chain
+balance, not taken on the operator's word**:
+
+- The committed realized return `r_f` for an epoch must reconcile with the net
+  base-asset change of that forager's sub-account over the epoch, adjusted for
+  authorized deposits and withdrawals. If the sub-account did not actually gain
+  the value, the claim is rejected.
+- Only fills on whitelisted venues with real liquidity count as trades. Internal
+  transfers between accounts an operator controls are not trades and produce no
+  realized performance.
+- The bounded `tanh` deposit caps the pheromone any single epoch can add, so even
+  a partially successful manipulation yields limited allocation gain, while the
+  bond remains at risk if the manufactured position later loses.
+
+---
+
