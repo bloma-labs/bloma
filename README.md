@@ -125,6 +125,39 @@ Details, slash triggers and the full parameter table are in
 
 ---
 
+## Honesty
+
+Autonomous agent trading loses money. A protocol that allocates capital to
+agents inherits that fact, and KOLNY's credibility depends on saying so rather
+than working around it.
+
+Section 6 of [`docs/risk-spec.md`](./docs/risk-spec.md) is a prohibition list.
+It names the specific phrases that may not appear on any KOLNY surface, and it
+is deliberately the only place in the project where those phrases are written
+down. The continuous-integration gate parses that section and fails the build if
+any of those terms appears anywhere else in the tree, so the rule is enforced by
+the repository rather than by good intentions.
+
+What KOLNY publishes instead of safety claims:
+
+- Realized performance only, in every headline figure. Never backtests, never
+  marks on open positions, never projections.
+- Current and maximum drawdown for every forager and for the colony, at the
+  same size and in the same place as the returns.
+- The full slash and burn history. A slashed forager stays in the list with its
+  status, it is not deleted.
+- Decayed trails, kept visible. A map showing only the routes that worked is a
+  lie about the terrain.
+- The insurance cache balance and reserve ratio, including when it is below
+  target.
+- Capital that could not be deployed, reported as an un-deployed reserve rather
+  than quietly over-concentrated.
+
+Allocation is not a forecast. It is a description of where value has already
+been realized, decayed by how long ago it happened.
+
+---
+
 ## License
 
 MIT. See [`LICENSE`](./LICENSE).
