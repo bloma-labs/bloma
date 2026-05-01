@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Documentation gate for the KOLNY specification repository.
 
-Two checks run over every Markdown file in the tree:
+Three checks run over every Markdown file in the tree:
 
 1. Prohibited language. The canonical prohibition list is section 6.1 of
    ``docs/risk-spec.md``. That section states that it is the single place the
@@ -11,6 +11,10 @@ Two checks run over every Markdown file in the tree:
 
 2. Emoji. The house style forbids emoji in every surface, including
    documentation and commit messages.
+
+3. Cross-references. Every relative Markdown link and every backticked
+   ``*.md`` reference must resolve to a file that exists, so the specification
+   cannot advertise a document the tree does not contain.
 
 Exit status is 0 when every check passes and 1 otherwise.
 """
@@ -40,6 +44,8 @@ EMOJI_RANGES = (
 
 SKIP_DIRS = {".git", "node_modules", "target", ".next", "dist", "build"}
 
+MD_LINK = re.compile(r"\[[^\]]*\]\(([^)\s]+)")
+MD_BACKTICK_DOC = re.compile(r"`([A-Za-z0-9._/-]+\.md)`")
 QUOTED = re.compile(r'"([^"]+)"')
 HEADING = re.compile(r"^(#{1,6})\s+(.*)$")
 
@@ -132,6 +138,24 @@ def check_emoji(files: list[Path]) -> list[str]:
     return failures
 
 
+def check_references(files: list[Path]) -> list[str]:
+    failures = []
+    for path in files:
+        rel = path.relative_to(REPO_ROOT)
+        text = path.read_text(encoding="utf-8")
+        targets = set()
+        for target in MD_LINK.findall(text):
+            if target.startswith(("http://", "https://", "mailto:", "#")):
+                continue
+            targets.add(target.split("#", 1)[0])
+        targets.update(MD_BACKTICK_DOC.findall(text))
+        for target in sorted(t for t in targets if t):
+            resolved = (path.parent / target).resolve()
+            if not resolved.exists():
+                failures.append(f"{rel}: unresolved reference {target!r}")
+    return failures
+
+
 def report(name: str, failures: list[str]) -> bool:
     if failures:
         print(f"FAIL {name}")
@@ -160,6 +184,7 @@ def main() -> int:
     ok = True
     ok &= report("prohibited-language", check_language(files, terms, region))
     ok &= report("emoji", check_emoji(files))
+    ok &= report("cross-references", check_references(files))
     return 0 if ok else 1
 
 
