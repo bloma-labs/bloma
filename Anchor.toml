@@ -1,0 +1,27 @@
+[toolchain]
+
+[features]
+resolution = true
+skip-lint = false
+
+# Localnet only. Deploying this program to devnet or mainnet requires explicit
+# user approval together with a user-supplied deploy keypair. Do not add
+# [programs.devnet] or [programs.mainnet] sections here.
+[programs.localnet]
+kolny_colony = "Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS"
+
+[registry]
+url = "https://api.apr.dev"
+
+[provider]
+cluster = "Localnet"
+# Intentionally NOT ~/.config/solana/id.json: that file is shared across
+# projects, and sharing it would make one upgrade authority own several
+# unrelated programs. A project-scoped deploy keypair is supplied by the user
+# at deploy time; until then this path does not exist and nothing can be sent.
+wallet = "./deploy-keypair-not-provisioned.json"
+
+# No deploy/migrate scripts. Chain-touching commands are never wired into a
+# script that could run automatically.
+[scripts]
+test = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/*.ts"
