@@ -262,3 +262,13 @@ Full trigger thresholds and bond mechanics are in `risk-spec.md`.
 
 ---
 
+## 8. Implementation note: Anchor version
+
+The concept material references "Anchor 0.31". As of 2026-08 that is two major
+versions behind: the latest published stable `anchor-lang` is **1.1.2**, and
+**2.0.0-rc.1** is in release-candidate (verified against the crates.io registry
+and the GitHub releases page; see `references.md`). The program should pin an
+explicit, current version in `Anchor.toml` rather than 0.31, and the header
+trust indicator string should be updated to match whatever is pinned. Pinning is
+mandatory regardless of which version is chosen, so that the published IDL, the
+SDK, and the CLI all build against one interface.
