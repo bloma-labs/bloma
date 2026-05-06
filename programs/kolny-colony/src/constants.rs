@@ -68,3 +68,35 @@ pub const PHEROMONE_FLOOR: u64 = 0;
 /// Overflow bound on a trail, far above any economically reachable value
 /// (steady state is `Q / rho`, about 6.25e6 at the defaults).
 pub const PHEROMONE_CEIL: u64 = 1_000_000_000_000;
+
+// ---------------------------------------------------------------------------
+// Weights  (allocation-spec 11)
+// ---------------------------------------------------------------------------
+
+/// Single-forager concentration cap. 2000 = 20%.
+pub const DEFAULT_W_MAX_BPS: u16 = 2_000;
+pub const MIN_W_MAX_BPS: u16 = 500;
+pub const MAX_W_MAX_BPS: u16 = 4_000;
+
+/// Demotion threshold, not a floor. 300 = 3%.
+pub const DEFAULT_W_DROP_BPS: u16 = 300;
+pub const MIN_W_DROP_BPS: u16 = 0;
+pub const MAX_W_DROP_BPS: u16 = 1_000;
+
+/// Margin added when the cap has to relax because `n_active * w_max < 1`.
+pub const CAP_RELAX_MARGIN_BPS: u16 = 100;
+
+/// Exploration reserve. 1000 = 10% of value under colony.
+pub const DEFAULT_SCOUT_BUDGET_BPS: u16 = 1_000;
+pub const MIN_SCOUT_BUDGET_BPS: u16 = 500;
+pub const MAX_SCOUT_BUDGET_BPS: u16 = 2_000;
+
+/// No-trade band. 200 = 2%.
+pub const DEFAULT_REBAND_BAND_BPS: u16 = 200;
+pub const MIN_REBAND_BAND_BPS: u16 = 0;
+pub const MAX_REBAND_BAND_BPS: u16 = 1_000;
+
+/// Turnover cap. 2500 = 25% of the pool per epoch.
+pub const DEFAULT_TURNOVER_CAP_BPS: u16 = 2_500;
+pub const MIN_TURNOVER_CAP_BPS: u16 = 500;
+pub const MAX_TURNOVER_CAP_BPS: u16 = 10_000;
