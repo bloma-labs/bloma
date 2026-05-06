@@ -24,3 +24,14 @@ pub const SEED_CACHE_VAULT: &[u8] = b"cache_vault";
 pub const SEED_INCINERATOR: &[u8] = b"incinerator";
 pub const SEED_POSITION: &[u8] = b"position";
 pub const SEED_REDEEM: &[u8] = b"redeem";
+
+// ---------------------------------------------------------------------------
+// Epoch  (allocation-spec 11: epoch_duration_secs)
+// ---------------------------------------------------------------------------
+
+/// 7 days.
+pub const DEFAULT_EPOCH_DURATION_SECS: i64 = 604_800;
+/// 1 day.
+pub const MIN_EPOCH_DURATION_SECS: i64 = 86_400;
+/// 30 days.
+pub const MAX_EPOCH_DURATION_SECS: i64 = 2_592_000;
