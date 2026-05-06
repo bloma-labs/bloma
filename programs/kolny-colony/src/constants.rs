@@ -35,3 +35,36 @@ pub const DEFAULT_EPOCH_DURATION_SECS: i64 = 604_800;
 pub const MIN_EPOCH_DURATION_SECS: i64 = 86_400;
 /// 30 days.
 pub const MAX_EPOCH_DURATION_SECS: i64 = 2_592_000;
+
+// ---------------------------------------------------------------------------
+// Pheromone update  (allocation-spec 11)
+// ---------------------------------------------------------------------------
+
+/// Evaporation rate. 1600 = 0.16, a half-life of about 4 epochs.
+pub const DEFAULT_RHO_BPS: u16 = 1_600;
+pub const MIN_RHO_BPS: u16 = 100;
+pub const MAX_RHO_BPS: u16 = 5_000;
+
+/// Deposit scale `Q` in FP6. The largest change one epoch can make to a trail.
+pub const DEFAULT_DEPOSIT_SCALE_Q: u64 = 1_000_000;
+pub const MIN_DEPOSIT_SCALE_Q: u64 = 100_000;
+pub const MAX_DEPOSIT_SCALE_Q: u64 = 10_000_000;
+
+/// Performance normalization scale `s`. 1000 = 10%.
+pub const DEFAULT_PERF_NORM_S_BPS: u16 = 1_000;
+pub const MIN_PERF_NORM_S_BPS: u16 = 100;
+pub const MAX_PERF_NORM_S_BPS: u16 = 5_000;
+
+/// Risk aversion `lambda`. 10000 = 1.0x drawdown penalty.
+pub const DEFAULT_RISK_AVERSION_BPS: u16 = 10_000;
+pub const MIN_RISK_AVERSION_BPS: u16 = 0;
+pub const MAX_RISK_AVERSION_BPS: u16 = 50_000;
+
+/// Fixed-point scale for pheromone and deposits.
+pub const FP6_SCALE: u64 = 1_000_000;
+
+/// Pheromone floor. MUST stay 0 so a dead trail can actually evaporate away.
+pub const PHEROMONE_FLOOR: u64 = 0;
+/// Overflow bound on a trail, far above any economically reachable value
+/// (steady state is `Q / rho`, about 6.25e6 at the defaults).
+pub const PHEROMONE_CEIL: u64 = 1_000_000_000_000;
