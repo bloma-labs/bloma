@@ -100,3 +100,24 @@ pub const MAX_REBAND_BAND_BPS: u16 = 1_000;
 pub const DEFAULT_TURNOVER_CAP_BPS: u16 = 2_500;
 pub const MIN_TURNOVER_CAP_BPS: u16 = 500;
 pub const MAX_TURNOVER_CAP_BPS: u16 = 10_000;
+
+// ---------------------------------------------------------------------------
+// Scout promotion  (allocation-spec 11)
+// ---------------------------------------------------------------------------
+
+pub const DEFAULT_PROMOTE_MIN_EPOCHS: u8 = 4;
+pub const MIN_PROMOTE_MIN_EPOCHS: u8 = 1;
+pub const MAX_PROMOTE_MIN_EPOCHS: u8 = 52;
+
+pub const DEFAULT_PROMOTE_MIN_TRADES: u16 = 20;
+pub const MIN_PROMOTE_MIN_TRADES: u16 = 1;
+pub const MAX_PROMOTE_MIN_TRADES: u16 = 1_000;
+
+pub const DEFAULT_PROMOTE_PERF_BAR_BPS: i32 = 0;
+pub const MIN_PROMOTE_PERF_BAR_BPS: i32 = -5_000;
+pub const MAX_PROMOTE_PERF_BAR_BPS: i32 = 20_000;
+
+/// Cap on the pheromone a scout carries into the main pool at promotion, so it
+/// cannot enter at the top of the trail. FP6.
+pub const DEFAULT_PROMOTE_TAU_SEED_CAP: u64 = 1_000_000;
+pub const MAX_PROMOTE_TAU_SEED_CAP: u64 = 5_000_000;
