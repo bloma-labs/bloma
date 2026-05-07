@@ -121,3 +121,45 @@ pub const MAX_PROMOTE_PERF_BAR_BPS: i32 = 20_000;
 /// cannot enter at the top of the trail. FP6.
 pub const DEFAULT_PROMOTE_TAU_SEED_CAP: u64 = 1_000_000;
 pub const MAX_PROMOTE_TAU_SEED_CAP: u64 = 5_000_000;
+
+// ---------------------------------------------------------------------------
+// Bond and slashing  (risk-spec 7)
+// ---------------------------------------------------------------------------
+
+/// Bond as a fraction of allocation. 1000 = 10%.
+pub const DEFAULT_BOND_RATIO_BPS: u16 = 1_000;
+pub const MIN_BOND_RATIO_BPS: u16 = 500;
+pub const MAX_BOND_RATIO_BPS: u16 = 5_000;
+
+/// Over-collateralization against collateral price swings. 3000 = 30%.
+pub const DEFAULT_BOND_HAIRCUT_BPS: u16 = 3_000;
+pub const MIN_BOND_HAIRCUT_BPS: u16 = 1_000;
+pub const MAX_BOND_HAIRCUT_BPS: u16 = 7_000;
+
+/// Current drawdown that puts a forager on probation. 1500 = 15%.
+pub const DEFAULT_DD_PROBATION_BPS: u16 = 1_500;
+pub const MIN_DD_PROBATION_BPS: u16 = 500;
+pub const MAX_DD_PROBATION_BPS: u16 = 4_000;
+
+/// Current drawdown that makes a forager slashable. 3000 = 30%.
+pub const DEFAULT_DD_SLASH_BPS: u16 = 3_000;
+pub const MIN_DD_SLASH_BPS: u16 = 1_000;
+pub const MAX_DD_SLASH_BPS: u16 = 6_000;
+
+/// Per-epoch realized loss that pauses a forager. 1000 = 10%.
+pub const DEFAULT_EPOCH_LOSS_LIMIT_BPS: u16 = 1_000;
+pub const MIN_EPOCH_LOSS_LIMIT_BPS: u16 = 300;
+pub const MAX_EPOCH_LOSS_LIMIT_BPS: u16 = 3_000;
+
+pub const DEFAULT_PROBATION_GRACE_EPOCHS: u8 = 1;
+pub const MIN_PROBATION_GRACE_EPOCHS: u8 = 1;
+pub const MAX_PROBATION_GRACE_EPOCHS: u8 = 8;
+
+pub const DEFAULT_NONRESPONSE_TIMEOUT_EPOCHS: u8 = 2;
+pub const MIN_NONRESPONSE_TIMEOUT_EPOCHS: u8 = 1;
+pub const MAX_NONRESPONSE_TIMEOUT_EPOCHS: u8 = 8;
+
+/// Share of a seized bond that is burned; the rest goes to the Risk Cache.
+pub const DEFAULT_SLASH_BURN_BPS: u16 = 5_000;
+pub const MIN_SLASH_BURN_BPS: u16 = 0;
+pub const MAX_SLASH_BURN_BPS: u16 = 10_000;
