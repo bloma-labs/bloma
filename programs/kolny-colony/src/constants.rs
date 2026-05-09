@@ -163,3 +163,34 @@ pub const MAX_NONRESPONSE_TIMEOUT_EPOCHS: u8 = 8;
 pub const DEFAULT_SLASH_BURN_BPS: u16 = 5_000;
 pub const MIN_SLASH_BURN_BPS: u16 = 0;
 pub const MAX_SLASH_BURN_BPS: u16 = 10_000;
+
+/// Unlevered only. Fixed at 1 by policy; the field exists so the rule is
+/// explicit and auditable on-chain, not so it can be raised.
+pub const MAX_LEVERAGE_X: u8 = 1;
+
+/// Largest single asset inside a sub-account. 4000 = 40%.
+pub const DEFAULT_MAX_SINGLE_ASSET_BPS: u16 = 4_000;
+pub const MIN_MAX_SINGLE_ASSET_BPS: u16 = 1_000;
+pub const MAX_MAX_SINGLE_ASSET_BPS: u16 = 10_000;
+
+// ---------------------------------------------------------------------------
+// Risk Cache  (risk-spec 7)
+// ---------------------------------------------------------------------------
+
+/// Realized profit routed to the cache. 1000 = 10%.
+pub const DEFAULT_CACHE_ACCRUAL_BPS: u16 = 1_000;
+pub const MIN_CACHE_ACCRUAL_BPS: u16 = 0;
+pub const MAX_CACHE_ACCRUAL_BPS: u16 = 5_000;
+
+/// Target cache balance as a fraction of value under colony. 400 = 4%.
+pub const DEFAULT_CACHE_RESERVE_TARGET_BPS: u16 = 400;
+pub const MIN_CACHE_RESERVE_TARGET_BPS: u16 = 100;
+pub const MAX_CACHE_RESERVE_TARGET_BPS: u16 = 1_000;
+
+// ---------------------------------------------------------------------------
+// Deposits
+// ---------------------------------------------------------------------------
+
+/// Smallest accepted deposit. Together with the virtual share offset this
+/// removes the first-depositor rounding attack.
+pub const MINIMUM_DEPOSIT: u64 = 1_000;
