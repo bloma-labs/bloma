@@ -194,3 +194,24 @@ pub const MAX_CACHE_RESERVE_TARGET_BPS: u16 = 1_000;
 /// Smallest accepted deposit. Together with the virtual share offset this
 /// removes the first-depositor rounding attack.
 pub const MINIMUM_DEPOSIT: u64 = 1_000;
+
+// ---------------------------------------------------------------------------
+// Lifecycle enums, stored as u8
+// ---------------------------------------------------------------------------
+
+/// Settlement phase of the colony.
+pub const PHASE_OPEN: u8 = 0;
+pub const PHASE_SETTLING: u8 = 1;
+
+/// Forager lifecycle state.
+pub const STATUS_SCOUT: u8 = 0;
+pub const STATUS_ACTIVE: u8 = 1;
+pub const STATUS_PROBATION: u8 = 2;
+pub const STATUS_SLASHED: u8 = 3;
+pub const STATUS_RETIRED: u8 = 4;
+
+/// Slash reason codes, recorded on the `ForagerSlashed` event so the public
+/// slash history can state why each slash happened.
+pub const SLASH_REASON_LOSS_THRESHOLD: u8 = 0;
+pub const SLASH_REASON_RULE_VIOLATION: u8 = 1;
+pub const SLASH_REASON_NON_RESPONSE: u8 = 2;
