@@ -19,6 +19,7 @@
 use anchor_lang::prelude::*;
 
 pub mod constants;
+pub mod errors;
 
 declare_id!("Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS");
 
