@@ -103,3 +103,60 @@ impl ColonyConfig {
     // 96 + 32 + 48 + 56 + 20 + 38 + 7 + 7 = 304
     pub const LEN: usize = 304;
 }
+
+/// One forager: an operator-run trail the colony can send capital down.
+/// Seed `[b"forager", operator, forager_id:u64 LE]`.
+#[account]
+#[derive(Default)]
+pub struct ForagerState {
+    // -- identity ------------------------------------------------------- 64
+    pub operator: Pubkey,
+    pub forager_vault: Pubkey,
+
+    // -- accounting ----------------------------------------------------- 80
+    pub forager_id: u64,
+    /// Posted bond. Held inside `forager_vault` but accounted separately, so
+    /// settlement can subtract it before measuring performance.
+    pub bond: u64,
+    /// Colony capital currently deployed to this forager.
+    pub principal: u64,
+    /// Trail strength, FP6.
+    pub pheromone: u64,
+    /// Highest principal-relative equity seen, for drawdown.
+    pub high_water: u64,
+    pub last_settled_epoch: u64,
+    pub registered_epoch: u64,
+    /// Epochs this forager closed with a non-zero realized result. Named for
+    /// what it actually counts: the program cannot observe individual trades,
+    /// only settled epoch outcomes, so it does not claim to be a trade count.
+    pub realized_epochs: u64,
+    pub scout_epochs: u64,
+    pub last_scout_epoch: u64,
+
+    // -- signed / temporal ---------------------------------------------- 32
+    pub realized_pnl_cumulative: i64,
+    /// Cumulative risk-adjusted realized performance, for the promotion bar.
+    pub scout_perf_cum_bps: i64,
+    pub probation_until_epoch: u64,
+    pub last_heartbeat_ts: i64,
+
+    // -- opaque strategy tag -------------------------------------------- 32
+    pub strategy_meta: [u8; 32],
+
+    // -- bps ------------------------------------------------------------- 6
+    pub max_drawdown_bps: u16,
+    pub current_drawdown_bps: u16,
+    pub slash_count: u16,
+
+    // -- small ----------------------------------------------------------- 3
+    pub status: u8,
+    pub bump: u8,
+    pub vault_bump: u8,
+
+    pub _padding: [u8; 7],
+}
+
+impl ForagerState {
+    // 64 + 80 + 32 + 32 + 6 + 3 + 7 = 224
+    pub const LEN: usize = 224;
+}
