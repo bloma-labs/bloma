@@ -205,3 +205,18 @@ impl BroodVaultState {
         allocatable_pool.saturating_sub(self.outstanding_principal)
     }
 }
+
+/// A depositor's share balance. Seed `[b"position", depositor]`.
+#[account]
+#[derive(Default)]
+pub struct DepositorPosition {
+    pub owner: Pubkey,
+    pub shares: u128,
+    pub bump: u8,
+    pub _padding: [u8; 7],
+}
+
+impl DepositorPosition {
+    // 32 + 16 + 1 + 7 = 56
+    pub const LEN: usize = 56;
+}
