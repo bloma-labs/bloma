@@ -160,3 +160,48 @@ impl ForagerState {
     // 64 + 80 + 32 + 32 + 6 + 3 + 7 = 224
     pub const LEN: usize = 224;
 }
+
+/// Brood Vault share accounting. Singleton, seed `[b"brood"]`.
+///
+/// `nav = idle_base + outstanding_principal`. Both are accounting counters that
+/// only move through credited deposits, withdrawals and settlement, never by
+/// reading a live token balance. That is what makes an unsolicited transfer
+/// into a vault account unable to move the share price.
+#[account]
+#[derive(Default)]
+pub struct BroodVaultState {
+    pub base_mint: Pubkey,
+    pub vault_base: Pubkey,
+
+    pub total_shares: u128,
+    pub pending_redemption_shares: u128,
+
+    pub idle_base: u64,
+    pub outstanding_principal: u64,
+    pub next_redemption_id: u64,
+
+    pub bump: u8,
+    pub vault_bump: u8,
+    pub _padding: [u8; 6],
+}
+
+impl BroodVaultState {
+    // 64 + 32 + 24 + 8 = 128
+    pub const LEN: usize = 128;
+
+    /// Net asset value. Realized only: an open position that has not been
+    /// closed and settled contributes nothing here.
+    pub fn nav(&self) -> u64 {
+        self.idle_base.saturating_add(self.outstanding_principal)
+    }
+
+    /// Capital the concentration cap left unplaceable, which stays in the
+    /// vault rather than being forced into an over-concentrated position.
+    ///
+    /// Derived rather than stored. A stored copy would have to be recomputed
+    /// on every rebalance to stay true, and a stale one published as a reserve
+    /// figure would be worse than no figure at all.
+    pub fn undeployed_reserve(&self, allocatable_pool: u64) -> u64 {
+        allocatable_pool.saturating_sub(self.outstanding_principal)
+    }
+}
