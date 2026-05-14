@@ -220,3 +220,27 @@ impl DepositorPosition {
     // 32 + 16 + 1 + 7 = 56
     pub const LEN: usize = 56;
 }
+
+/// Insurance cache. Singleton, seed `[b"cache"]`.
+#[account]
+#[derive(Default)]
+pub struct RiskCacheState {
+    pub cache_vault: Pubkey,
+    /// Locked sink. No instruction ever withdraws from it.
+    pub incinerator_vault: Pubkey,
+
+    pub balance: u64,
+    pub total_covered: u64,
+    pub total_burned: u64,
+    pub total_accrued: u64,
+
+    pub bump: u8,
+    pub vault_bump: u8,
+    pub incinerator_bump: u8,
+    pub _padding: [u8; 5],
+}
+
+impl RiskCacheState {
+    // 64 + 32 + 3 + 5 = 104
+    pub const LEN: usize = 104;
+}
