@@ -244,3 +244,25 @@ impl RiskCacheState {
     // 64 + 32 + 3 + 5 = 104
     pub const LEN: usize = 104;
 }
+
+/// A queued redemption. Seed `[b"redeem", depositor, request_id:u64 LE]`.
+///
+/// The program cannot force-liquidate capital that is already deployed to a
+/// forager, so a withdrawal larger than idle liquidity queues here instead of
+/// promising an immediate payout it cannot honor.
+#[account]
+#[derive(Default)]
+pub struct RedemptionRequest {
+    pub owner: Pubkey,
+    pub shares: u128,
+    pub request_id: u64,
+    pub requested_epoch: u64,
+    pub assets_paid: u64,
+    pub bump: u8,
+    pub _padding: [u8; 7],
+}
+
+impl RedemptionRequest {
+    // 32 + 16 + 24 + 1 + 7 = 80
+    pub const LEN: usize = 80;
+}
