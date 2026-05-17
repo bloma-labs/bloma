@@ -88,3 +88,50 @@ pub fn tanh_fp6(x_fp6: i64) -> i64 {
         r as i64
     }
 }
+
+// ===========================================================================
+// Tests
+// ===========================================================================
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // -- tanh ---------------------------------------------------------------
+
+    #[test]
+    fn tanh_is_odd_and_bounded() {
+        assert_eq!(tanh_fp6(0), 0);
+        assert_eq!(tanh_fp6(-500_000), -tanh_fp6(500_000));
+        assert_eq!(tanh_fp6(-3_000_000), -tanh_fp6(3_000_000));
+        // Bounded strictly inside (-1, 1) in FP6.
+        assert!(tanh_fp6(50_000_000) < 1_000_000);
+        assert!(tanh_fp6(-50_000_000) > -1_000_000);
+    }
+
+    #[test]
+    fn tanh_matches_reference_points() {
+        // Correctly rounded to FP6 at every point.
+        assert_eq!(tanh_fp6(200_000), 197_375); // tanh(0.2)
+        assert_eq!(tanh_fp6(300_000), 291_313); // tanh(0.3)
+        assert_eq!(tanh_fp6(500_000), 462_117); // tanh(0.5)
+        assert_eq!(tanh_fp6(700_000), 604_368); // tanh(0.7)
+        assert_eq!(tanh_fp6(1_000_000), 761_594); // tanh(1.0)
+        assert_eq!(tanh_fp6(1_200_000), 833_655); // tanh(1.2)
+        assert_eq!(tanh_fp6(1_500_000), 905_148); // tanh(1.5)
+        assert_eq!(tanh_fp6(2_000_000), 964_028); // tanh(2.0)
+        assert_eq!(tanh_fp6(3_000_000), 995_055); // tanh(3.0)
+    }
+
+    #[test]
+    fn tanh_is_monotone() {
+        let mut prev = tanh_fp6(-5_000_000);
+        let mut x = -5_000_000i64;
+        while x <= 5_000_000 {
+            let y = tanh_fp6(x);
+            assert!(y >= prev, "tanh not monotone at {}", x);
+            prev = y;
+            x += 37_000;
+        }
+    }
+}
