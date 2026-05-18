@@ -124,6 +124,43 @@ mod tests {
     }
 
     #[test]
+    fn tanh_reproduces_the_specification_deposit_table() {
+        // Every deposit in the worked example of docs/allocation-spec.md 10.1,
+        // at the three decimals that document prints. This is the check that
+        // rejected the lookup-table implementation: a 33-entry table missed
+        // four of these, and the error compounds across epochs into capital
+        // going to the wrong forager.
+        let q = 1_000_000u64;
+        let s = 1_000u16;
+        // (perf_bps, printed deposit in FP6 at 3dp)
+        for (perf_bps, expected_3dp) in [
+            (1_500i64, 905_000i64),
+            (1_200, 834_000),
+            (1_000, 762_000),
+            (500, 462_000),
+            (200, 197_000),
+            (300, 291_000),
+            (-500, -462_000),
+            (-1_000, -762_000),
+            (-800, -664_000),
+            (700, 604_000),
+        ] {
+            let d = deposit_fp6(perf_bps, s, q);
+            // Round the computed deposit to 3 decimals and compare.
+            let rounded = if d >= 0 {
+                (d + 500) / 1_000 * 1_000
+            } else {
+                -((-d + 500) / 1_000 * 1_000)
+            };
+            assert_eq!(
+                rounded, expected_3dp,
+                "perf {} bps produced {} which rounds to {}, specification prints {}",
+                perf_bps, d, rounded, expected_3dp
+            );
+        }
+    }
+
+    #[test]
     fn tanh_is_monotone() {
         let mut prev = tanh_fp6(-5_000_000);
         let mut x = -5_000_000i64;
