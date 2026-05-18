@@ -89,6 +89,36 @@ pub fn tanh_fp6(x_fp6: i64) -> i64 {
     }
 }
 
+// ---------------------------------------------------------------------------
+// Realized performance measurement
+// ---------------------------------------------------------------------------
+
+/// Realized PnL of a forager for one epoch, measured on-chain from its
+/// isolated sub-account.
+///
+/// The sub-account holds **bond + principal**, so the bond MUST be removed
+/// before the balance is compared against principal. Skipping that subtraction
+/// would count posted bond as trading performance and let an operator inflate
+/// its own trail by simply topping up its bond.
+///
+/// `realized = (balance - bond) - principal`
+pub fn realized_epoch_pnl(vault_balance: u64, bond: u64, principal: u64) -> i64 {
+    let gross = vault_balance.saturating_sub(bond) as i128;
+    let realized = gross - principal as i128;
+    realized.clamp(i64::MIN as i128, i64::MAX as i128) as i64
+}
+
+/// Realized net return rate for the epoch, in bps. Signed: losses are negative.
+/// Zero principal yields a zero rate (no capital was at work, so there is no
+/// rate to report) rather than a division by zero.
+pub fn return_bps(realized_pnl_epoch: i64, principal: u64) -> i64 {
+    if principal == 0 {
+        return 0;
+    }
+    let r = (realized_pnl_epoch as i128) * BPS_DENOM_I / (principal as i128);
+    r.clamp(i64::MIN as i128, i64::MAX as i128) as i64
+}
+
 // ===========================================================================
 // Tests
 // ===========================================================================
