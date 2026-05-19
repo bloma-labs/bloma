@@ -201,4 +201,44 @@ mod tests {
             x += 37_000;
         }
     }
+
+    // -- realized PnL: the bond MUST be excluded ----------------------------
+
+    #[test]
+    fn realized_pnl_excludes_bond() {
+        // Sub-account holds bond 500 + principal 1000, and the forager made 200.
+        // Balance 1700 => realized must be +200, not +700.
+        assert_eq!(realized_epoch_pnl(1_700, 500, 1_000), 200);
+
+        // Flat epoch: balance is exactly bond + principal => zero, not +bond.
+        assert_eq!(realized_epoch_pnl(1_500, 500, 1_000), 0);
+
+        // A pure bond top-up with no trading must NOT read as performance.
+        // Bond rose 500 -> 900, balance rose with it; realized stays 0.
+        assert_eq!(realized_epoch_pnl(1_900, 900, 1_000), 0);
+
+        // Loss: balance 1200 = bond 500 + 700 left of 1000 principal => -300.
+        assert_eq!(realized_epoch_pnl(1_200, 500, 1_000), -300);
+
+        // Total wipeout of principal, bond intact.
+        assert_eq!(realized_epoch_pnl(500, 500, 1_000), -1_000);
+    }
+
+    #[test]
+    fn realized_pnl_forgetting_bond_would_be_exploitable() {
+        // Demonstrates the exact manipulation the subtraction prevents: with a
+        // flat book, a larger bond must not produce a larger realized number.
+        let small_bond = realized_epoch_pnl(1_100, 100, 1_000);
+        let large_bond = realized_epoch_pnl(9_000, 8_000, 1_000);
+        assert_eq!(small_bond, 0);
+        assert_eq!(large_bond, 0);
+        assert_eq!(small_bond, large_bond);
+    }
+
+    #[test]
+    fn return_bps_is_signed_and_safe() {
+        assert_eq!(return_bps(100, 1_000), 1_000); // +10%
+        assert_eq!(return_bps(-250, 1_000), -2_500); // -25%
+        assert_eq!(return_bps(500, 0), 0); // no principal, no rate
+    }
 }
