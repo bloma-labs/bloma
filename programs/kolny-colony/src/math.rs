@@ -130,6 +130,52 @@ pub fn risk_adjusted_perf_bps(r_bps: i64, drawdown_bps: u16, risk_aversion_bps: 
     perf.clamp(i64::MIN as i128, i64::MAX as i128) as i64
 }
 
+// ---------------------------------------------------------------------------
+// Pheromone: evaporate, deposit, update
+// ---------------------------------------------------------------------------
+
+/// Evaporation. `retained = tau * (BPS_DENOM - rho_bps) / BPS_DENOM`.
+///
+/// This is the geometric discount that makes the colony forget an edge that has
+/// died: with no new deposit a trail holds `(1 - rho)^n` of its pheromone after
+/// `n` epochs.
+pub fn evaporate(pheromone: u64, rho_bps: u16) -> u64 {
+    let retain = BPS_DENOM.saturating_sub(rho_bps as u128);
+    ((pheromone as u128) * retain / BPS_DENOM) as u64
+}
+
+/// The epoch deposit `D = Q * tanh(perf / s)`, in FP6. Signed.
+///
+/// Bounded to `(-Q, +Q)` so no single epoch -- lucky fat tail or manipulation
+/// attempt -- can dominate a trail, and sign-preserving so a loss actively
+/// erodes the trail instead of merely failing to reinforce it.
+pub fn deposit_fp6(perf_bps: i64, perf_norm_s_bps: u16, deposit_scale_q: u64) -> i64 {
+    if perf_norm_s_bps == 0 {
+        return 0;
+    }
+    // x = perf / s, expressed in FP6.
+    let x_fp6 = ((perf_bps as i128) * FP6 / (perf_norm_s_bps as i128))
+        .clamp(i64::MIN as i128, i64::MAX as i128) as i64;
+    let t = tanh_fp6(x_fp6) as i128;
+    let d = t * (deposit_scale_q as i128) / FP6;
+    d.clamp(i64::MIN as i128, i64::MAX as i128) as i64
+}
+
+/// One epoch of the pheromone update:
+/// `tau' = clamp( max(0, (1 - rho) * tau + D), 0, ceil )`.
+///
+/// The floor is 0 by design so a dead trail can actually die; propping every
+/// forager up at a minimum weight would fight the whole mechanism. The ceiling
+/// is an overflow bound, not an economic one.
+pub fn update_pheromone(current: u64, deposit_fp6: i64, rho_bps: u16, ceil: u64) -> u64 {
+    let retained = evaporate(current, rho_bps) as i128;
+    let next = retained + deposit_fp6 as i128;
+    if next <= 0 {
+        return 0;
+    }
+    (next as u128).min(ceil as u128) as u64
+}
+
 // ===========================================================================
 // Tests
 // ===========================================================================
