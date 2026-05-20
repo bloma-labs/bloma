@@ -119,6 +119,17 @@ pub fn return_bps(realized_pnl_epoch: i64, principal: u64) -> i64 {
     r.clamp(i64::MIN as i128, i64::MAX as i128) as i64
 }
 
+/// Risk-adjusted realized performance: `perf = r - lambda * DD`.
+///
+/// The subtractive drawdown penalty makes a return earned through a deep
+/// intra-epoch drawdown worth less trail than the same return earned smoothly,
+/// so a forager cannot climb by taking ruinous risk that happened to pay off.
+pub fn risk_adjusted_perf_bps(r_bps: i64, drawdown_bps: u16, risk_aversion_bps: u16) -> i64 {
+    let penalty = (risk_aversion_bps as i128) * (drawdown_bps as i128) / BPS_DENOM_I;
+    let perf = (r_bps as i128) - penalty;
+    perf.clamp(i64::MIN as i128, i64::MAX as i128) as i64
+}
+
 // ===========================================================================
 // Tests
 // ===========================================================================
@@ -240,5 +251,15 @@ mod tests {
         assert_eq!(return_bps(100, 1_000), 1_000); // +10%
         assert_eq!(return_bps(-250, 1_000), -2_500); // -25%
         assert_eq!(return_bps(500, 0), 0); // no principal, no rate
+    }
+
+    #[test]
+    fn risk_adjustment_penalizes_drawdown() {
+        // r = +20%, DD = 10%, lambda = 1.0 => perf = 2000 - 1000 = 1000 bps
+        assert_eq!(risk_adjusted_perf_bps(2_000, 1_000, 10_000), 1_000);
+        // lambda = 0 disables the penalty
+        assert_eq!(risk_adjusted_perf_bps(2_000, 1_000, 0), 2_000);
+        // A deep drawdown can drive a positive return negative.
+        assert!(risk_adjusted_perf_bps(500, 3_000, 10_000) < 0);
     }
 }
