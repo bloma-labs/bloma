@@ -308,4 +308,37 @@ mod tests {
         // A deep drawdown can drive a positive return negative.
         assert!(risk_adjusted_perf_bps(500, 3_000, 10_000) < 0);
     }
+
+    // -- evaporation / decay ------------------------------------------------
+
+    #[test]
+    fn evaporate_applies_geometric_decay() {
+        assert_eq!(evaporate(1_000_000, 5_000), 500_000);
+        assert_eq!(evaporate(0, 5_000), 0);
+        assert_eq!(evaporate(1_000_000, 10_000), 0);
+        // Default rho = 1600 retains 84%.
+        assert_eq!(evaporate(1_000_000, 1_600), 840_000);
+    }
+
+    #[test]
+    fn decay_half_life_matches_spec() {
+        // rho = 1600 bps is documented as a half-life of about 4 epochs.
+        let mut tau = 1_000_000u64;
+        for _ in 0..4 {
+            tau = evaporate(tau, 1_600);
+        }
+        // (0.84)^4 = 0.49787
+        assert_eq!(tau, 497_871);
+        assert!(tau < 500_000 && tau > 490_000);
+    }
+
+    #[test]
+    fn unreplenished_trail_decays_toward_zero() {
+        let mut tau = 1_000_000u64;
+        for _ in 0..13 {
+            tau = evaporate(tau, 1_600);
+        }
+        // ~10% left after 13 epochs, the documented "forgotten" horizon.
+        assert!(tau < 110_000 && tau > 90_000, "tau was {}", tau);
+    }
 }
