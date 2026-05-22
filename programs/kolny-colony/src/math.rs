@@ -341,4 +341,36 @@ mod tests {
         // ~10% left after 13 epochs, the documented "forgotten" horizon.
         assert!(tau < 110_000 && tau > 90_000, "tau was {}", tau);
     }
+
+    // -- deposit transform --------------------------------------------------
+
+    #[test]
+    fn deposit_is_bounded_by_q() {
+        let q = 1_000_000u64;
+        // Enormous performance still cannot exceed Q.
+        let huge = deposit_fp6(1_000_000, 1_000, q);
+        assert!(huge < q as i64, "deposit {} must stay under Q", huge);
+        assert!(huge > 990_000);
+        // And symmetrically on the downside.
+        let huge_neg = deposit_fp6(-1_000_000, 1_000, q);
+        assert!(huge_neg > -(q as i64));
+        assert_eq!(huge_neg, -huge);
+    }
+
+    #[test]
+    fn deposit_is_sign_preserving() {
+        let q = 1_000_000u64;
+        assert!(deposit_fp6(500, 1_000, q) > 0);
+        assert_eq!(deposit_fp6(0, 1_000, q), 0);
+        assert!(deposit_fp6(-500, 1_000, q) < 0);
+    }
+
+    #[test]
+    fn deposit_saturation_matches_spec_points() {
+        let q = 1_000_000u64;
+        // At perf = s the deposit is Q*tanh(1) ~ 0.76 Q.
+        assert_eq!(deposit_fp6(1_000, 1_000, q), 761_594);
+        // At perf = 2s it is ~0.96 Q.
+        assert_eq!(deposit_fp6(2_000, 1_000, q), 964_028);
+    }
 }
