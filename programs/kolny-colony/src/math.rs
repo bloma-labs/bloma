@@ -373,4 +373,47 @@ mod tests {
         // At perf = 2s it is ~0.96 Q.
         assert_eq!(deposit_fp6(2_000, 1_000, q), 964_028);
     }
+
+    // -- pheromone update ---------------------------------------------------
+
+    #[test]
+    fn update_pheromone_evaporates_then_deposits() {
+        let ceil = 1_000_000_000_000u64;
+        // rho 2000 => retain 80%. tau 1.0 + deposit 0.905 => 1.705 (spec 10.1, forager A)
+        let tau = update_pheromone(1_000_000, 905_000, 2_000, ceil);
+        assert_eq!(tau, 1_705_000);
+    }
+
+    #[test]
+    fn losing_epoch_erodes_trail_faster_than_decay() {
+        let ceil = 1_000_000_000_000u64;
+        let decay_only = update_pheromone(1_000_000, 0, 2_000, ceil);
+        let with_loss = update_pheromone(1_000_000, -462_000, 2_000, ceil);
+        assert_eq!(decay_only, 800_000);
+        assert_eq!(with_loss, 338_000); // spec 10.1, forager D epoch 1
+        assert!(with_loss < decay_only);
+    }
+
+    #[test]
+    fn pheromone_floors_at_zero_and_never_goes_negative() {
+        let ceil = 1_000_000_000_000u64;
+        // spec 10.1 forager D epoch 2: 0.8*0.338 - 0.762 = -0.492 -> 0
+        let tau = update_pheromone(338_000, -762_000, 2_000, ceil);
+        assert_eq!(tau, 0);
+        // A dead trail stays dead under further losses.
+        assert_eq!(update_pheromone(0, -1_000_000, 2_000, ceil), 0);
+    }
+
+    #[test]
+    fn pheromone_clamps_to_ceiling() {
+        let ceil = 1_000_000u64;
+        let tau = update_pheromone(1_000_000, 900_000, 0, ceil);
+        assert_eq!(tau, ceil, "must clamp at the ceiling");
+        // Repeated maximal deposits cannot climb past the ceiling.
+        let mut t = 0u64;
+        for _ in 0..50 {
+            t = update_pheromone(t, 900_000, 1_600, ceil);
+        }
+        assert!(t <= ceil);
+    }
 }
