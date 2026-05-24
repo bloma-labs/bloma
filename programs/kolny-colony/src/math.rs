@@ -416,4 +416,64 @@ mod tests {
         }
         assert!(t <= ceil);
     }
+
+    #[test]
+    fn spec_worked_example_trajectory_reproduces() {
+        // End to end against docs/allocation-spec.md 10.1, driven from the
+        // published risk-adjusted performance figures rather than from the
+        // deposit column, so the deposit transform is under test too.
+        //
+        // Example parameters, NOT the production defaults: rho = 0.20,
+        // Q = 1.0, s = 0.10, and the colony seeded at tau = 1.000.
+        let ceil = 1_000_000_000_000u64;
+        let rho = 2_000u16;
+        let q = 1_000_000u64;
+        let s = 1_000u16;
+
+        // (name, perf per epoch in bps, exact tau at the start of e2/e3/e4)
+        //
+        // The expected values are exact FP6, independently confirmed at 60-digit
+        // precision, not the three-decimal figures the document prints. Fourteen
+        // of the document's fifteen cells agree with these exactly. The one that
+        // does not is forager E at epoch 3: the document's own worked steps
+        // round the intermediate `0.8 * 0.603` to `0.483` instead of `0.4824`,
+        // and reach `0.483 + 0.604 = 1.087`. Carried without that intermediate
+        // rounding the value is 1.086468, which prints as 1.086. That is an
+        // artifact of the document's presentation, not a disagreement about the
+        // model, and it is exactly the kind of thing that gets mistaken for an
+        // implementation bug -- hence this note.
+        let foragers: [(&str, [i64; 3], [u64; 3]); 5] = [
+            ("A", [1_500, 1_200, 1_000], [1_705_148, 2_197_773, 2_519_812]),
+            ("B", [1_000, 500, 0], [1_561_594, 1_711_392, 1_369_113]),
+            ("C", [200, 300, 200], [997_375, 1_089_213, 1_068_745]),
+            ("D", [-500, -1_000, -800], [337_883, 0, 0]),
+            ("E", [-200, 700, 1_500], [602_625, 1_086_468, 1_774_322]),
+        ];
+
+        let mut finals = [0u64; 5];
+        for (i, (name, perfs, expected)) in foragers.iter().enumerate() {
+            let mut tau = 1_000_000u64;
+            for (epoch, perf) in perfs.iter().enumerate() {
+                let d = deposit_fp6(*perf, s, q);
+                tau = update_pheromone(tau, d, rho, ceil);
+                assert_eq!(
+                    tau,
+                    expected[epoch],
+                    "forager {} entering epoch {}",
+                    name,
+                    epoch + 2
+                );
+            }
+            finals[i] = tau;
+        }
+
+        // The narrative the example is built to show:
+        // D, the loser, is extinguished outright.
+        assert_eq!(finals[3], 0);
+        // E, the late bloomer, overtakes B, the early winner who went flat.
+        // Standing still is punished, which is the point of the discount.
+        assert!(finals[4] > finals[1]);
+        // A, the steady star, ends on the strongest trail.
+        assert!(finals[0] > finals[4]);
+    }
 }
