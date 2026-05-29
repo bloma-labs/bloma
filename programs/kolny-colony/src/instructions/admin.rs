@@ -320,3 +320,97 @@ impl InitColonyParams {
         config.cache_reserve_target_bps = self.cache_reserve_target_bps;
     }
 }
+
+// ---------------------------------------------------------------------------
+// 1. initialize_colony
+// ---------------------------------------------------------------------------
+
+/// Genesis. Creates the colony configuration and fixes the base asset.
+///
+/// The signer becomes the authority, because there is no prior state to check
+/// it against. This instruction can only ever succeed once for a given program
+/// id: the config PDA has no variable seed, so the second attempt fails at
+/// account creation.
+#[derive(Accounts)]
+pub struct InitializeColony<'info> {
+    #[account(
+        init,
+        payer = authority,
+        space = 8 + ColonyConfig::LEN,
+        seeds = [SEED_COLONY],
+        bump
+    )]
+    pub config: Box<Account<'info, ColonyConfig>>,
+
+    /// The single asset the colony accounts in. Deposits, allocations, bonds,
+    /// slashing and cache coverage are all denominated in this mint, which is
+    /// what keeps the program free of any price oracle.
+    pub base_mint: Box<InterfaceAccount<'info, Mint>>,
+
+    #[account(mut)]
+    pub authority: Signer<'info>,
+
+    pub system_program: Program<'info, System>,
+}
+
+pub fn initialize_colony(ctx: Context<InitializeColony>, params: InitColonyParams) -> Result<()> {
+    params.validate()?;
+
+    let now = Clock::get()?.unix_timestamp;
+    let epoch_end_ts = now
+        .checked_add(params.epoch_duration_secs)
+        .ok_or(ColonyError::Overflow)?;
+
+    let authority_key = ctx.accounts.authority.key();
+    let base_mint_key = ctx.accounts.base_mint.key();
+    let config_bump = ctx.bumps.config;
+
+    let config: &mut ColonyConfig = &mut ctx.accounts.config;
+
+    config.authority = authority_key;
+    config.pending_authority = Pubkey::default();
+    config.base_mint = base_mint_key;
+
+    // Epoch numbering starts at 1, not 0, and this is load-bearing. The
+    // settlement crank admits a forager with `last_settled_epoch <
+    // settling_epoch`, and a forager is initialized one epoch behind the
+    // current one. At epoch 0 that subtraction saturates to 0, the guard reads
+    // `0 < 0`, and no forager could ever be settled while still counting toward
+    // the completion target, so `finalize_settlement` could never succeed.
+    config.epoch = 1;
+    config.settling_epoch = 0;
+    config.epoch_end_ts = epoch_end_ts;
+
+    config.pheromone_sum = 0;
+    config.pheromone_sum_acc = 0;
+    config.alloc_rest_sum = 0;
+    config.alloc_remaining_bps = BPS_DENOM;
+
+    config.allocatable_pool = 0;
+    config.scout_pool = 0;
+    config.epoch_turnover_used = 0;
+
+    config.settleable_forager_count = 0;
+    config.active_forager_count = 0;
+    config.active_count_acc = 0;
+    config.settled_count = 0;
+
+    // Pinned by policy, not settable through params or a patch. The field
+    // exists so the unlevered rule is readable on-chain by anyone.
+    config.max_leverage_x = MAX_LEVERAGE_X;
+
+    config.epoch_phase = PHASE_OPEN;
+    config.paused = false;
+    config.bump = config_bump;
+
+    params.store_into(config);
+
+    emit!(ColonyInitialized {
+        authority: config.authority,
+        base_mint: config.base_mint,
+        epoch_duration_secs: config.epoch_duration_secs,
+        epoch_end_ts: config.epoch_end_ts,
+    });
+
+    Ok(())
+}

@@ -32,4 +32,10 @@ declare_id!("Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS");
 #[program]
 pub mod kolny_colony {
     use super::*;
+
+    // -- colony configuration ------------------------------------------------
+
+    pub fn initialize_colony(ctx: Context<InitializeColony>, params: InitColonyParams) -> Result<()> {
+        admin::initialize_colony(ctx, params)
+    }
 }
