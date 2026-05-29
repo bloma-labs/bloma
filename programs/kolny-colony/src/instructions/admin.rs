@@ -414,3 +414,142 @@ pub fn initialize_colony(ctx: Context<InitializeColony>, params: InitColonyParam
 
     Ok(())
 }
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Every published default, assembled through the same struct the
+    /// instruction takes. `min_bond` and `scout_ticket_base_units` are
+    /// project-set with no default in the specs, so they carry plausible
+    /// non-zero stand-ins here.
+    fn published_defaults() -> InitColonyParams {
+        InitColonyParams {
+            epoch_duration_secs: DEFAULT_EPOCH_DURATION_SECS,
+
+            rho_bps: DEFAULT_RHO_BPS,
+            deposit_scale_q: DEFAULT_DEPOSIT_SCALE_Q,
+            perf_norm_s_bps: DEFAULT_PERF_NORM_S_BPS,
+            risk_aversion_bps: DEFAULT_RISK_AVERSION_BPS,
+
+            w_max_bps: DEFAULT_W_MAX_BPS,
+            w_drop_bps: DEFAULT_W_DROP_BPS,
+            scout_budget_bps: DEFAULT_SCOUT_BUDGET_BPS,
+            reband_band_bps: DEFAULT_REBAND_BAND_BPS,
+            turnover_cap_bps: DEFAULT_TURNOVER_CAP_BPS,
+
+            promote_min_epochs: DEFAULT_PROMOTE_MIN_EPOCHS,
+            promote_min_trades: DEFAULT_PROMOTE_MIN_TRADES,
+            promote_perf_bar_bps: DEFAULT_PROMOTE_PERF_BAR_BPS,
+            scout_ticket_base_units: 1_000_000,
+            promote_tau_seed_cap: DEFAULT_PROMOTE_TAU_SEED_CAP,
+
+            min_bond: 1_000_000,
+            bond_ratio_bps: DEFAULT_BOND_RATIO_BPS,
+            bond_haircut_bps: DEFAULT_BOND_HAIRCUT_BPS,
+            dd_probation_bps: DEFAULT_DD_PROBATION_BPS,
+            dd_slash_bps: DEFAULT_DD_SLASH_BPS,
+            epoch_loss_limit_bps: DEFAULT_EPOCH_LOSS_LIMIT_BPS,
+            probation_grace_epochs: DEFAULT_PROBATION_GRACE_EPOCHS,
+            nonresponse_timeout_epochs: DEFAULT_NONRESPONSE_TIMEOUT_EPOCHS,
+            slash_burn_bps: DEFAULT_SLASH_BURN_BPS,
+            max_single_asset_bps: DEFAULT_MAX_SINGLE_ASSET_BPS,
+
+            cache_accrual_bps: DEFAULT_CACHE_ACCRUAL_BPS,
+            cache_reserve_target_bps: DEFAULT_CACHE_RESERVE_TARGET_BPS,
+        }
+    }
+
+    fn empty_patch() -> ConfigPatch {
+        ConfigPatch {
+            epoch_duration_secs: None,
+
+            rho_bps: None,
+            deposit_scale_q: None,
+            perf_norm_s_bps: None,
+            risk_aversion_bps: None,
+
+            w_max_bps: None,
+            w_drop_bps: None,
+            scout_budget_bps: None,
+            reband_band_bps: None,
+            turnover_cap_bps: None,
+
+            promote_min_epochs: None,
+            promote_min_trades: None,
+            promote_perf_bar_bps: None,
+            scout_ticket_base_units: None,
+            promote_tau_seed_cap: None,
+
+            min_bond: None,
+            bond_ratio_bps: None,
+            bond_haircut_bps: None,
+            dd_probation_bps: None,
+            dd_slash_bps: None,
+            epoch_loss_limit_bps: None,
+            probation_grace_epochs: None,
+            nonresponse_timeout_epochs: None,
+            slash_burn_bps: None,
+            max_single_asset_bps: None,
+
+            cache_accrual_bps: None,
+            cache_reserve_target_bps: None,
+        }
+    }
+
+    /// A default that sits outside its own published range would make genesis
+    /// with the documented parameters impossible. Cheap check, real failure.
+    #[test]
+    fn published_defaults_pass_the_range_gate() {
+        assert!(published_defaults().validate().is_ok());
+    }
+
+    #[test]
+    fn out_of_range_values_are_rejected() {
+        let mut p = published_defaults();
+        p.rho_bps = MAX_RHO_BPS + 1;
+        assert!(p.validate().is_err());
+
+        let mut p = published_defaults();
+        p.epoch_duration_secs = MIN_EPOCH_DURATION_SECS - 1;
+        assert!(p.validate().is_err());
+
+        let mut p = published_defaults();
+        p.promote_perf_bar_bps = MIN_PROMOTE_PERF_BAR_BPS - 1;
+        assert!(p.validate().is_err());
+
+        let mut p = published_defaults();
+        p.promote_tau_seed_cap = MAX_PROMOTE_TAU_SEED_CAP + 1;
+        assert!(p.validate().is_err());
+    }
+
+    #[test]
+    fn zero_is_rejected_where_the_spec_requires_a_positive_value() {
+        let mut p = published_defaults();
+        p.min_bond = 0;
+        assert!(p.validate().is_err());
+
+        let mut p = published_defaults();
+        p.scout_ticket_base_units = 0;
+        assert!(p.validate().is_err());
+    }
+
+    #[test]
+    fn ordering_invariants_are_enforced() {
+        // Individually legal, jointly nonsense: probation at or above slash.
+        let mut p = published_defaults();
+        p.dd_probation_bps = 3_500;
+        p.dd_slash_bps = 3_000;
+        assert!(p.validate().is_err());
+
+        // Individually legal, jointly nonsense: drop at or above the cap.
+        let mut p = published_defaults();
+        p.w_drop_bps = 1_000;
+        p.w_max_bps = 1_000;
+        assert!(p.validate().is_err());
+    }
+}
