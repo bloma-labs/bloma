@@ -81,7 +81,7 @@ pub struct InitColonyParams {
 }
 
 /// Inclusive `[min, max]` bound check against the published range.
-macro_rules! bounded {
+macro_rules! in_range {
     ($value:expr, $min:expr, $max:expr) => {
         require!(
             $value >= $min && $value <= $max,
@@ -99,61 +99,61 @@ impl InitColonyParams {
     /// untouched field is re-confirmed rather than trusted.
     pub fn validate(&self) -> Result<()> {
         // -- epoch -----------------------------------------------------------
-        bounded!(
+        in_range!(
             self.epoch_duration_secs,
             MIN_EPOCH_DURATION_SECS,
             MAX_EPOCH_DURATION_SECS
         );
 
         // -- pheromone update ------------------------------------------------
-        bounded!(self.rho_bps, MIN_RHO_BPS, MAX_RHO_BPS);
-        bounded!(
+        in_range!(self.rho_bps, MIN_RHO_BPS, MAX_RHO_BPS);
+        in_range!(
             self.deposit_scale_q,
             MIN_DEPOSIT_SCALE_Q,
             MAX_DEPOSIT_SCALE_Q
         );
-        bounded!(
+        in_range!(
             self.perf_norm_s_bps,
             MIN_PERF_NORM_S_BPS,
             MAX_PERF_NORM_S_BPS
         );
-        bounded!(
+        in_range!(
             self.risk_aversion_bps,
             MIN_RISK_AVERSION_BPS,
             MAX_RISK_AVERSION_BPS
         );
 
         // -- weights ---------------------------------------------------------
-        bounded!(self.w_max_bps, MIN_W_MAX_BPS, MAX_W_MAX_BPS);
-        bounded!(self.w_drop_bps, MIN_W_DROP_BPS, MAX_W_DROP_BPS);
-        bounded!(
+        in_range!(self.w_max_bps, MIN_W_MAX_BPS, MAX_W_MAX_BPS);
+        in_range!(self.w_drop_bps, MIN_W_DROP_BPS, MAX_W_DROP_BPS);
+        in_range!(
             self.scout_budget_bps,
             MIN_SCOUT_BUDGET_BPS,
             MAX_SCOUT_BUDGET_BPS
         );
-        bounded!(
+        in_range!(
             self.reband_band_bps,
             MIN_REBAND_BAND_BPS,
             MAX_REBAND_BAND_BPS
         );
-        bounded!(
+        in_range!(
             self.turnover_cap_bps,
             MIN_TURNOVER_CAP_BPS,
             MAX_TURNOVER_CAP_BPS
         );
 
         // -- scout promotion -------------------------------------------------
-        bounded!(
+        in_range!(
             self.promote_min_epochs,
             MIN_PROMOTE_MIN_EPOCHS,
             MAX_PROMOTE_MIN_EPOCHS
         );
-        bounded!(
+        in_range!(
             self.promote_min_trades,
             MIN_PROMOTE_MIN_TRADES,
             MAX_PROMOTE_MIN_TRADES
         );
-        bounded!(
+        in_range!(
             self.promote_perf_bar_bps,
             MIN_PROMOTE_PERF_BAR_BPS,
             MAX_PROMOTE_PERF_BAR_BPS
@@ -175,47 +175,47 @@ impl InitColonyParams {
         // Project-set, spec range "> 0". A zero floor bond would let a forager
         // take colony capital with nothing at stake.
         require!(self.min_bond > 0, ColonyError::ParamOutOfRange);
-        bounded!(self.bond_ratio_bps, MIN_BOND_RATIO_BPS, MAX_BOND_RATIO_BPS);
-        bounded!(
+        in_range!(self.bond_ratio_bps, MIN_BOND_RATIO_BPS, MAX_BOND_RATIO_BPS);
+        in_range!(
             self.bond_haircut_bps,
             MIN_BOND_HAIRCUT_BPS,
             MAX_BOND_HAIRCUT_BPS
         );
-        bounded!(
+        in_range!(
             self.dd_probation_bps,
             MIN_DD_PROBATION_BPS,
             MAX_DD_PROBATION_BPS
         );
-        bounded!(self.dd_slash_bps, MIN_DD_SLASH_BPS, MAX_DD_SLASH_BPS);
-        bounded!(
+        in_range!(self.dd_slash_bps, MIN_DD_SLASH_BPS, MAX_DD_SLASH_BPS);
+        in_range!(
             self.epoch_loss_limit_bps,
             MIN_EPOCH_LOSS_LIMIT_BPS,
             MAX_EPOCH_LOSS_LIMIT_BPS
         );
-        bounded!(
+        in_range!(
             self.probation_grace_epochs,
             MIN_PROBATION_GRACE_EPOCHS,
             MAX_PROBATION_GRACE_EPOCHS
         );
-        bounded!(
+        in_range!(
             self.nonresponse_timeout_epochs,
             MIN_NONRESPONSE_TIMEOUT_EPOCHS,
             MAX_NONRESPONSE_TIMEOUT_EPOCHS
         );
-        bounded!(self.slash_burn_bps, MIN_SLASH_BURN_BPS, MAX_SLASH_BURN_BPS);
-        bounded!(
+        in_range!(self.slash_burn_bps, MIN_SLASH_BURN_BPS, MAX_SLASH_BURN_BPS);
+        in_range!(
             self.max_single_asset_bps,
             MIN_MAX_SINGLE_ASSET_BPS,
             MAX_MAX_SINGLE_ASSET_BPS
         );
 
         // -- risk cache ------------------------------------------------------
-        bounded!(
+        in_range!(
             self.cache_accrual_bps,
             MIN_CACHE_ACCRUAL_BPS,
             MAX_CACHE_ACCRUAL_BPS
         );
-        bounded!(
+        in_range!(
             self.cache_reserve_target_bps,
             MIN_CACHE_RESERVE_TARGET_BPS,
             MAX_CACHE_RESERVE_TARGET_BPS
