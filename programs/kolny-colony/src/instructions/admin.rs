@@ -736,4 +736,52 @@ mod tests {
         p.w_max_bps = 1_000;
         assert!(p.validate().is_err());
     }
+
+    #[test]
+    fn an_empty_patch_changes_nothing() {
+        let mut merged = published_defaults();
+        empty_patch().overlay(&mut merged);
+
+        let base = published_defaults();
+        assert_eq!(merged.epoch_duration_secs, base.epoch_duration_secs);
+        assert_eq!(merged.rho_bps, base.rho_bps);
+        assert_eq!(merged.w_max_bps, base.w_max_bps);
+        assert_eq!(merged.min_bond, base.min_bond);
+        assert_eq!(
+            merged.cache_reserve_target_bps,
+            base.cache_reserve_target_bps
+        );
+    }
+
+    #[test]
+    fn a_patch_moves_only_the_fields_it_sets() {
+        let mut patch = empty_patch();
+        patch.rho_bps = Some(MAX_RHO_BPS);
+        patch.turnover_cap_bps = Some(MIN_TURNOVER_CAP_BPS);
+
+        let mut merged = published_defaults();
+        patch.overlay(&mut merged);
+
+        assert_eq!(merged.rho_bps, MAX_RHO_BPS);
+        assert_eq!(merged.turnover_cap_bps, MIN_TURNOVER_CAP_BPS);
+        assert_eq!(merged.w_max_bps, DEFAULT_W_MAX_BPS);
+        assert_eq!(merged.dd_slash_bps, DEFAULT_DD_SLASH_BPS);
+        assert!(merged.validate().is_ok());
+    }
+
+    /// A patch that is legal on its own but illegal beside the values it lands
+    /// next to must still be rejected. This is the case that a per-field check
+    /// on the patch alone would let through.
+    #[test]
+    fn a_patch_is_validated_against_the_values_it_lands_beside() {
+        let mut patch = empty_patch();
+        // In range on its own (500..4000), but above the default slash
+        // threshold of 3000.
+        patch.dd_probation_bps = Some(4_000);
+
+        let mut merged = published_defaults();
+        patch.overlay(&mut merged);
+
+        assert!(merged.validate().is_err());
+    }
 }
