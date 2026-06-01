@@ -38,4 +38,8 @@ pub mod kolny_colony {
     pub fn initialize_colony(ctx: Context<InitializeColony>, params: InitColonyParams) -> Result<()> {
         admin::initialize_colony(ctx, params)
     }
+
+    pub fn update_config(ctx: Context<UpdateConfig>, patch: ConfigPatch) -> Result<()> {
+        admin::update_config(ctx, patch)
+    }
 }

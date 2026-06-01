@@ -10,6 +10,8 @@ pub enum ColonyError {
     ParamOutOfRange,
     #[msg("Colony is paused")]
     Paused,
+    #[msg("Wrong settlement phase for this instruction")]
+    WrongPhase,
     #[msg("Signer is not the colony authority")]
     NotAuthority,
     #[msg("No pending authority to accept")]

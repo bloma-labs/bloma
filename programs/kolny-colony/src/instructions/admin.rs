@@ -80,6 +80,54 @@ pub struct InitColonyParams {
     pub cache_reserve_target_bps: u16,
 }
 
+/// A partial edit to the live configuration.
+///
+/// `None` means "leave this parameter where it is", which is not the same as
+/// zero. Sending a full struct of concrete values on every edit would make a
+/// forgotten field silently reset a parameter, so the patch carries only what
+/// the caller actually intends to move.
+#[derive(AnchorSerialize, AnchorDeserialize, Clone)]
+pub struct ConfigPatch {
+    // -- epoch ---------------------------------------------------------------
+    pub epoch_duration_secs: Option<i64>,
+
+    // -- pheromone update ----------------------------------------------------
+    pub rho_bps: Option<u16>,
+    pub deposit_scale_q: Option<u64>,
+    pub perf_norm_s_bps: Option<u16>,
+    pub risk_aversion_bps: Option<u16>,
+
+    // -- weights -------------------------------------------------------------
+    pub w_max_bps: Option<u16>,
+    pub w_drop_bps: Option<u16>,
+    pub scout_budget_bps: Option<u16>,
+    pub reband_band_bps: Option<u16>,
+    pub turnover_cap_bps: Option<u16>,
+
+    // -- scout promotion -----------------------------------------------------
+    pub promote_min_epochs: Option<u8>,
+    pub promote_min_trades: Option<u16>,
+    pub promote_perf_bar_bps: Option<i32>,
+    pub scout_ticket_base_units: Option<u64>,
+    pub promote_tau_seed_cap: Option<u64>,
+
+    // -- bond and slashing ---------------------------------------------------
+    pub min_bond: Option<u64>,
+    pub bond_ratio_bps: Option<u16>,
+    pub bond_haircut_bps: Option<u16>,
+    pub dd_probation_bps: Option<u16>,
+    pub dd_slash_bps: Option<u16>,
+    pub epoch_loss_limit_bps: Option<u16>,
+    pub probation_grace_epochs: Option<u8>,
+    pub nonresponse_timeout_epochs: Option<u8>,
+    pub slash_burn_bps: Option<u16>,
+    pub max_single_asset_bps: Option<u16>,
+
+    // -- risk cache ----------------------------------------------------------
+    pub cache_accrual_bps: Option<u16>,
+    pub cache_reserve_target_bps: Option<u16>,
+}
+
 /// Inclusive `[min, max]` bound check against the published range.
 macro_rules! in_range {
     ($value:expr, $min:expr, $max:expr) => {
@@ -321,6 +369,98 @@ impl InitColonyParams {
     }
 }
 
+impl ConfigPatch {
+    /// Lay every field the caller actually set over a parameter snapshot.
+    fn overlay(&self, base: &mut InitColonyParams) {
+        if let Some(v) = self.epoch_duration_secs {
+            base.epoch_duration_secs = v;
+        }
+
+        if let Some(v) = self.rho_bps {
+            base.rho_bps = v;
+        }
+        if let Some(v) = self.deposit_scale_q {
+            base.deposit_scale_q = v;
+        }
+        if let Some(v) = self.perf_norm_s_bps {
+            base.perf_norm_s_bps = v;
+        }
+        if let Some(v) = self.risk_aversion_bps {
+            base.risk_aversion_bps = v;
+        }
+
+        if let Some(v) = self.w_max_bps {
+            base.w_max_bps = v;
+        }
+        if let Some(v) = self.w_drop_bps {
+            base.w_drop_bps = v;
+        }
+        if let Some(v) = self.scout_budget_bps {
+            base.scout_budget_bps = v;
+        }
+        if let Some(v) = self.reband_band_bps {
+            base.reband_band_bps = v;
+        }
+        if let Some(v) = self.turnover_cap_bps {
+            base.turnover_cap_bps = v;
+        }
+
+        if let Some(v) = self.promote_min_epochs {
+            base.promote_min_epochs = v;
+        }
+        if let Some(v) = self.promote_min_trades {
+            base.promote_min_trades = v;
+        }
+        if let Some(v) = self.promote_perf_bar_bps {
+            base.promote_perf_bar_bps = v;
+        }
+        if let Some(v) = self.scout_ticket_base_units {
+            base.scout_ticket_base_units = v;
+        }
+        if let Some(v) = self.promote_tau_seed_cap {
+            base.promote_tau_seed_cap = v;
+        }
+
+        if let Some(v) = self.min_bond {
+            base.min_bond = v;
+        }
+        if let Some(v) = self.bond_ratio_bps {
+            base.bond_ratio_bps = v;
+        }
+        if let Some(v) = self.bond_haircut_bps {
+            base.bond_haircut_bps = v;
+        }
+        if let Some(v) = self.dd_probation_bps {
+            base.dd_probation_bps = v;
+        }
+        if let Some(v) = self.dd_slash_bps {
+            base.dd_slash_bps = v;
+        }
+        if let Some(v) = self.epoch_loss_limit_bps {
+            base.epoch_loss_limit_bps = v;
+        }
+        if let Some(v) = self.probation_grace_epochs {
+            base.probation_grace_epochs = v;
+        }
+        if let Some(v) = self.nonresponse_timeout_epochs {
+            base.nonresponse_timeout_epochs = v;
+        }
+        if let Some(v) = self.slash_burn_bps {
+            base.slash_burn_bps = v;
+        }
+        if let Some(v) = self.max_single_asset_bps {
+            base.max_single_asset_bps = v;
+        }
+
+        if let Some(v) = self.cache_accrual_bps {
+            base.cache_accrual_bps = v;
+        }
+        if let Some(v) = self.cache_reserve_target_bps {
+            base.cache_reserve_target_bps = v;
+        }
+    }
+}
+
 // ---------------------------------------------------------------------------
 // 1. initialize_colony
 // ---------------------------------------------------------------------------
@@ -410,6 +550,50 @@ pub fn initialize_colony(ctx: Context<InitializeColony>, params: InitColonyParam
         base_mint: config.base_mint,
         epoch_duration_secs: config.epoch_duration_secs,
         epoch_end_ts: config.epoch_end_ts,
+    });
+
+    Ok(())
+}
+
+// ---------------------------------------------------------------------------
+// 2. update_config
+// ---------------------------------------------------------------------------
+
+#[derive(Accounts)]
+pub struct UpdateConfig<'info> {
+    #[account(
+        mut,
+        seeds = [SEED_COLONY],
+        bump = config.bump,
+        has_one = authority @ ColonyError::NotAuthority,
+    )]
+    pub config: Box<Account<'info, ColonyConfig>>,
+
+    pub authority: Signer<'info>,
+}
+
+/// Move one or more parameters.
+///
+/// The patch is merged onto a snapshot of the live configuration and the merged
+/// result goes through the same gate genesis used, so every changed value is
+/// range-checked and every ordering invariant is re-confirmed against the
+/// values it will actually sit beside.
+///
+/// Changing `epoch_duration_secs` does not move `epoch_end_ts`. The epoch that
+/// is already running keeps the deadline depositors saw when it opened; a new
+/// duration that took effect immediately would let an authority end an epoch on
+/// demand, or postpone one indefinitely.
+pub fn update_config(ctx: Context<UpdateConfig>, patch: ConfigPatch) -> Result<()> {
+    let config: &mut ColonyConfig = &mut ctx.accounts.config;
+
+    let mut merged = InitColonyParams::from_config(config);
+    patch.overlay(&mut merged);
+    merged.validate()?;
+    merged.store_into(config);
+
+    emit!(ConfigUpdated {
+        authority: config.authority,
+        epoch: config.epoch,
     });
 
     Ok(())
