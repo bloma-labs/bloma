@@ -42,4 +42,12 @@ pub mod kolny_colony {
     pub fn update_config(ctx: Context<UpdateConfig>, patch: ConfigPatch) -> Result<()> {
         admin::update_config(ctx, patch)
     }
+
+    pub fn propose_authority(ctx: Context<ProposeAuthority>, new_authority: Pubkey) -> Result<()> {
+        admin::propose_authority(ctx, new_authority)
+    }
+
+    pub fn accept_authority(ctx: Context<AcceptAuthority>) -> Result<()> {
+        admin::accept_authority(ctx)
+    }
 }

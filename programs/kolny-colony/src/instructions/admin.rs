@@ -600,6 +600,77 @@ pub fn update_config(ctx: Context<UpdateConfig>, patch: ConfigPatch) -> Result<(
 }
 
 // ---------------------------------------------------------------------------
+// 3. propose_authority  /  4. accept_authority
+// ---------------------------------------------------------------------------
+
+#[derive(Accounts)]
+pub struct ProposeAuthority<'info> {
+    #[account(
+        mut,
+        seeds = [SEED_COLONY],
+        bump = config.bump,
+        has_one = authority @ ColonyError::NotAuthority,
+    )]
+    pub config: Box<Account<'info, ColonyConfig>>,
+
+    pub authority: Signer<'info>,
+}
+
+/// Nominate the next authority. Nothing changes until the nominee accepts, so
+/// a mistyped key cannot strand the colony.
+///
+/// Proposing the default key clears a pending nomination.
+pub fn propose_authority(ctx: Context<ProposeAuthority>, new_authority: Pubkey) -> Result<()> {
+    let config: &mut ColonyConfig = &mut ctx.accounts.config;
+    config.pending_authority = new_authority;
+
+    emit!(AuthorityProposed {
+        current: config.authority,
+        pending: new_authority,
+    });
+
+    Ok(())
+}
+
+#[derive(Accounts)]
+pub struct AcceptAuthority<'info> {
+    #[account(mut, seeds = [SEED_COLONY], bump = config.bump)]
+    pub config: Box<Account<'info, ColonyConfig>>,
+
+    /// Must be the pending authority, and must sign. That signature is the
+    /// whole point of the two-step handover: it proves the key exists and its
+    /// holder can transact before it takes over.
+    pub new_authority: Signer<'info>,
+}
+
+pub fn accept_authority(ctx: Context<AcceptAuthority>) -> Result<()> {
+    let signer_key = ctx.accounts.new_authority.key();
+    let config: &mut ColonyConfig = &mut ctx.accounts.config;
+
+    require_keys_neq!(
+        config.pending_authority,
+        Pubkey::default(),
+        ColonyError::NoPendingAuthority
+    );
+    require_keys_eq!(
+        config.pending_authority,
+        signer_key,
+        ColonyError::NotAuthority
+    );
+
+    let previous = config.authority;
+    config.authority = signer_key;
+    config.pending_authority = Pubkey::default();
+
+    emit!(AuthorityAccepted {
+        previous,
+        current: config.authority,
+    });
+
+    Ok(())
+}
+
+// ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
 
