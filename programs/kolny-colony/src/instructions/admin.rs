@@ -671,6 +671,39 @@ pub fn accept_authority(ctx: Context<AcceptAuthority>) -> Result<()> {
 }
 
 // ---------------------------------------------------------------------------
+// 5. set_paused
+// ---------------------------------------------------------------------------
+
+#[derive(Accounts)]
+pub struct SetPaused<'info> {
+    #[account(
+        mut,
+        seeds = [SEED_COLONY],
+        bump = config.bump,
+        has_one = authority @ ColonyError::NotAuthority,
+    )]
+    pub config: Box<Account<'info, ColonyConfig>>,
+
+    pub authority: Signer<'info>,
+}
+
+/// Halt the instructions that push capital outward. The pause flag is read by
+/// the deposit and allocation paths; it never blocks a depositor from getting
+/// value back out, and it is not gated on the pause flag itself so a paused
+/// colony can always be unpaused.
+pub fn set_paused(ctx: Context<SetPaused>, paused: bool) -> Result<()> {
+    let config: &mut ColonyConfig = &mut ctx.accounts.config;
+    config.paused = paused;
+
+    emit!(PausedSet {
+        authority: config.authority,
+        paused,
+    });
+
+    Ok(())
+}
+
+// ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
 

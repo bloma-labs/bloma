@@ -50,4 +50,8 @@ pub mod kolny_colony {
     pub fn accept_authority(ctx: Context<AcceptAuthority>) -> Result<()> {
         admin::accept_authority(ctx)
     }
+
+    pub fn set_paused(ctx: Context<SetPaused>, paused: bool) -> Result<()> {
+        admin::set_paused(ctx, paused)
+    }
 }
