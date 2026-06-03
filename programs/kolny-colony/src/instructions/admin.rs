@@ -909,6 +909,73 @@ pub fn open_cache_vault(ctx: Context<OpenCacheVault>) -> Result<()> {
     Ok(())
 }
 
+#[derive(Accounts)]
+pub struct OpenIncineratorVault<'info> {
+    #[account(
+        seeds = [SEED_COLONY],
+        bump = config.bump,
+        has_one = authority @ ColonyError::NotAuthority,
+        has_one = base_mint @ ColonyError::BaseMintMismatch,
+    )]
+    pub config: Box<Account<'info, ColonyConfig>>,
+
+    #[account(mut, seeds = [SEED_CACHE], bump = cache_state.bump)]
+    pub cache_state: Box<Account<'info, RiskCacheState>>,
+
+    /// One-way sink for the burned share of a seized bond.
+    ///
+    /// This program contains no instruction that transfers out of this account
+    /// and none may ever be added. Its authority is a PDA whose signing seeds
+    /// only ever appear on transfers into it, so the balance is economically
+    /// destroyed: unreachable by the authority, by an operator, and by the
+    /// program itself. Nothing here reduces the supply of any mint, and the
+    /// public copy must not describe it as if it did.
+    #[account(
+        init,
+        payer = authority,
+        seeds = [SEED_INCINERATOR],
+        bump,
+        token::mint = base_mint,
+        token::authority = cache_state,
+        token::token_program = token_program,
+    )]
+    pub incinerator_vault: Box<InterfaceAccount<'info, TokenAccount>>,
+
+    pub base_mint: Box<InterfaceAccount<'info, Mint>>,
+
+    #[account(mut)]
+    pub authority: Signer<'info>,
+
+    pub token_program: Interface<'info, TokenInterface>,
+    pub system_program: Program<'info, System>,
+}
+
+pub fn open_incinerator_vault(ctx: Context<OpenIncineratorVault>) -> Result<()> {
+    let incinerator_key = ctx.accounts.incinerator_vault.key();
+    let incinerator_bump = ctx.bumps.incinerator_vault;
+
+    let cache: &mut RiskCacheState = &mut ctx.accounts.cache_state;
+
+    // The incinerator is the second of the two cache accounts to open, because
+    // `RiskCacheInitialized` is where the indexer learns both addresses. Run
+    // out of order and the event would publish a default cache vault.
+    require_keys_neq!(
+        cache.cache_vault,
+        Pubkey::default(),
+        ColonyError::VaultMismatch
+    );
+
+    cache.incinerator_vault = incinerator_key;
+    cache.incinerator_bump = incinerator_bump;
+
+    emit!(RiskCacheInitialized {
+        cache_vault: cache.cache_vault,
+        incinerator_vault: cache.incinerator_vault,
+    });
+
+    Ok(())
+}
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------

@@ -73,4 +73,8 @@ pub mod kolny_colony {
     pub fn open_cache_vault(ctx: Context<OpenCacheVault>) -> Result<()> {
         admin::open_cache_vault(ctx)
     }
+
+    pub fn open_incinerator_vault(ctx: Context<OpenIncineratorVault>) -> Result<()> {
+        admin::open_incinerator_vault(ctx)
+    }
 }
