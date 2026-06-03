@@ -44,3 +44,9 @@ pub struct BroodInitialized {
     pub base_mint: Pubkey,
     pub vault_base: Pubkey,
 }
+
+#[event]
+pub struct RiskCacheInitialized {
+    pub cache_vault: Pubkey,
+    pub incinerator_vault: Pubkey,
+}

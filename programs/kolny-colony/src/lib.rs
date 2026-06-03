@@ -65,4 +65,12 @@ pub mod kolny_colony {
     pub fn open_vault_base(ctx: Context<OpenVaultBase>) -> Result<()> {
         admin::open_vault_base(ctx)
     }
+
+    pub fn initialize_risk_cache(ctx: Context<InitializeRiskCache>) -> Result<()> {
+        admin::initialize_risk_cache(ctx)
+    }
+
+    pub fn open_cache_vault(ctx: Context<OpenCacheVault>) -> Result<()> {
+        admin::open_cache_vault(ctx)
+    }
 }

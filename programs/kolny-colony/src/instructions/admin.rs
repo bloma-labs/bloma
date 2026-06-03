@@ -816,6 +816,100 @@ pub fn open_vault_base(ctx: Context<OpenVaultBase>) -> Result<()> {
 }
 
 // ---------------------------------------------------------------------------
+// 8. initialize_risk_cache  /  9. open_cache_vault  /  10. open_incinerator_vault
+// ---------------------------------------------------------------------------
+
+#[derive(Accounts)]
+pub struct InitializeRiskCache<'info> {
+    #[account(
+        seeds = [SEED_COLONY],
+        bump = config.bump,
+        has_one = authority @ ColonyError::NotAuthority,
+    )]
+    pub config: Box<Account<'info, ColonyConfig>>,
+
+    #[account(
+        init,
+        payer = authority,
+        space = 8 + RiskCacheState::LEN,
+        seeds = [SEED_CACHE],
+        bump
+    )]
+    pub cache_state: Box<Account<'info, RiskCacheState>>,
+
+    #[account(mut)]
+    pub authority: Signer<'info>,
+
+    pub system_program: Program<'info, System>,
+}
+
+pub fn initialize_risk_cache(ctx: Context<InitializeRiskCache>) -> Result<()> {
+    let cache_bump = ctx.bumps.cache_state;
+
+    let cache: &mut RiskCacheState = &mut ctx.accounts.cache_state;
+
+    cache.cache_vault = Pubkey::default();
+    cache.incinerator_vault = Pubkey::default();
+
+    cache.balance = 0;
+    cache.total_covered = 0;
+    cache.total_burned = 0;
+    cache.total_accrued = 0;
+
+    cache.bump = cache_bump;
+    cache.vault_bump = 0;
+    cache.incinerator_bump = 0;
+
+    Ok(())
+}
+
+#[derive(Accounts)]
+pub struct OpenCacheVault<'info> {
+    #[account(
+        seeds = [SEED_COLONY],
+        bump = config.bump,
+        has_one = authority @ ColonyError::NotAuthority,
+        has_one = base_mint @ ColonyError::BaseMintMismatch,
+    )]
+    pub config: Box<Account<'info, ColonyConfig>>,
+
+    #[account(mut, seeds = [SEED_CACHE], bump = cache_state.bump)]
+    pub cache_state: Box<Account<'info, RiskCacheState>>,
+
+    /// Holds the insurance reserve that absorbs depositor losses.
+    #[account(
+        init,
+        payer = authority,
+        seeds = [SEED_CACHE_VAULT],
+        bump,
+        token::mint = base_mint,
+        token::authority = cache_state,
+        token::token_program = token_program,
+    )]
+    pub cache_vault: Box<InterfaceAccount<'info, TokenAccount>>,
+
+    pub base_mint: Box<InterfaceAccount<'info, Mint>>,
+
+    #[account(mut)]
+    pub authority: Signer<'info>,
+
+    pub token_program: Interface<'info, TokenInterface>,
+    pub system_program: Program<'info, System>,
+}
+
+pub fn open_cache_vault(ctx: Context<OpenCacheVault>) -> Result<()> {
+    let vault_key = ctx.accounts.cache_vault.key();
+    let vault_bump = ctx.bumps.cache_vault;
+
+    let cache: &mut RiskCacheState = &mut ctx.accounts.cache_state;
+
+    cache.cache_vault = vault_key;
+    cache.vault_bump = vault_bump;
+
+    Ok(())
+}
+
+// ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
 
