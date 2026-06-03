@@ -704,6 +704,118 @@ pub fn set_paused(ctx: Context<SetPaused>, paused: bool) -> Result<()> {
 }
 
 // ---------------------------------------------------------------------------
+// 6. initialize_brood  /  7. open_vault_base
+// ---------------------------------------------------------------------------
+
+#[derive(Accounts)]
+pub struct InitializeBrood<'info> {
+    #[account(
+        seeds = [SEED_COLONY],
+        bump = config.bump,
+        has_one = authority @ ColonyError::NotAuthority,
+    )]
+    pub config: Box<Account<'info, ColonyConfig>>,
+
+    #[account(
+        init,
+        payer = authority,
+        space = 8 + BroodVaultState::LEN,
+        seeds = [SEED_BROOD],
+        bump
+    )]
+    pub brood_state: Box<Account<'info, BroodVaultState>>,
+
+    #[account(mut)]
+    pub authority: Signer<'info>,
+
+    pub system_program: Program<'info, System>,
+}
+
+/// Create the share-accounting state. The token account it will own is opened
+/// separately by `open_vault_base`, because two `init` constraints in one
+/// context overrun the stack frame.
+pub fn initialize_brood(ctx: Context<InitializeBrood>) -> Result<()> {
+    // Copied from the config rather than taken as an argument, so the brood
+    // cannot be pointed at a mint the colony does not account in.
+    let base_mint = ctx.accounts.config.base_mint;
+    let brood_bump = ctx.bumps.brood_state;
+
+    let brood: &mut BroodVaultState = &mut ctx.accounts.brood_state;
+
+    brood.base_mint = base_mint;
+    brood.vault_base = Pubkey::default();
+
+    brood.total_shares = 0;
+    brood.pending_redemption_shares = 0;
+
+    brood.idle_base = 0;
+    brood.outstanding_principal = 0;
+    brood.next_redemption_id = 0;
+
+    brood.bump = brood_bump;
+    brood.vault_bump = 0;
+
+    Ok(())
+}
+
+#[derive(Accounts)]
+pub struct OpenVaultBase<'info> {
+    #[account(
+        seeds = [SEED_COLONY],
+        bump = config.bump,
+        has_one = authority @ ColonyError::NotAuthority,
+        has_one = base_mint @ ColonyError::BaseMintMismatch,
+    )]
+    pub config: Box<Account<'info, ColonyConfig>>,
+
+    #[account(
+        mut,
+        seeds = [SEED_BROOD],
+        bump = brood_state.bump,
+        has_one = base_mint @ ColonyError::BaseMintMismatch,
+    )]
+    pub brood_state: Box<Account<'info, BroodVaultState>>,
+
+    /// The colony's single custody account for idle base asset. Owned by the
+    /// brood PDA, so only this program can move anything out of it.
+    #[account(
+        init,
+        payer = authority,
+        seeds = [SEED_BROOD_VAULT],
+        bump,
+        token::mint = base_mint,
+        token::authority = brood_state,
+        token::token_program = token_program,
+    )]
+    pub vault_base: Box<InterfaceAccount<'info, TokenAccount>>,
+
+    pub base_mint: Box<InterfaceAccount<'info, Mint>>,
+
+    #[account(mut)]
+    pub authority: Signer<'info>,
+
+    pub token_program: Interface<'info, TokenInterface>,
+    pub system_program: Program<'info, System>,
+}
+
+pub fn open_vault_base(ctx: Context<OpenVaultBase>) -> Result<()> {
+    let vault_key = ctx.accounts.vault_base.key();
+    let vault_bump = ctx.bumps.vault_base;
+
+    let brood: &mut BroodVaultState = &mut ctx.accounts.brood_state;
+
+    brood.vault_base = vault_key;
+    brood.vault_bump = vault_bump;
+
+    emit!(BroodInitialized {
+        base_mint: brood.base_mint,
+        vault_base: brood.vault_base,
+    });
+
+    Ok(())
+}
+
+// ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
 

@@ -38,3 +38,9 @@ pub struct PausedSet {
     pub authority: Pubkey,
     pub paused: bool,
 }
+
+#[event]
+pub struct BroodInitialized {
+    pub base_mint: Pubkey,
+    pub vault_base: Pubkey,
+}

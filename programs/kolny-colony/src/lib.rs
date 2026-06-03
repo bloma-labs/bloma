@@ -55,4 +55,14 @@ pub mod kolny_colony {
     pub fn set_paused(ctx: Context<SetPaused>, paused: bool) -> Result<()> {
         admin::set_paused(ctx, paused)
     }
+
+    // -- singleton account creation (split so no context carries several inits)
+
+    pub fn initialize_brood(ctx: Context<InitializeBrood>) -> Result<()> {
+        admin::initialize_brood(ctx)
+    }
+
+    pub fn open_vault_base(ctx: Context<OpenVaultBase>) -> Result<()> {
+        admin::open_vault_base(ctx)
+    }
 }
