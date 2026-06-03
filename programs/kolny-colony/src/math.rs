@@ -176,6 +176,32 @@ pub fn update_pheromone(current: u64, deposit_fp6: i64, rho_bps: u16, ceil: u64)
     (next as u128).min(ceil as u128) as u64
 }
 
+// ---------------------------------------------------------------------------
+// Pheromone -> weights (bounded water-filling)
+// ---------------------------------------------------------------------------
+
+/// The most foragers that can simultaneously sit at the concentration cap.
+/// Tracking the top handful of trails is enough to solve the cap during the
+/// crank without holding the whole colony in memory.
+pub const MAX_CAPPED_TRAILS: usize = 15;
+pub const TOP_TRAILS_LEN: usize = MAX_CAPPED_TRAILS + 1;
+
+/// Effective concentration cap.
+///
+/// The cap is only feasible if `n_active * w_max >= 1`; below that the weights
+/// cannot sum to 1 while every weight stays at or under the cap. In that case
+/// the effective cap relaxes to `max(w_max, 1/n_active + margin)` so a small
+/// colony can still deploy, and any capital that STILL cannot be placed is
+/// reported as un-deployed reserve rather than silently over-concentrated.
+pub fn effective_max_weight_bps(w_max_bps: u16, active_count: u32, relax_margin_bps: u16) -> u16 {
+    if active_count == 0 {
+        return w_max_bps;
+    }
+    let even = (BPS_DENOM / active_count as u128) as u128;
+    let relaxed = (even + relax_margin_bps as u128).min(BPS_DENOM) as u16;
+    w_max_bps.max(relaxed)
+}
+
 // ===========================================================================
 // Tests
 // ===========================================================================
