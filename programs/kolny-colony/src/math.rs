@@ -202,6 +202,113 @@ pub fn effective_max_weight_bps(w_max_bps: u16, active_count: u32, relax_margin_
     w_max_bps.max(relaxed)
 }
 
+/// The solved water-filling level.
+///
+/// `remaining_bps` is the share of the pool left for the uncapped foragers
+/// (`BPS_DENOM - capped_count * w_max`), and `rest_sum` is their total
+/// pheromone. Together they define every uncapped weight as
+/// `remaining_bps * tau / rest_sum`, with no quotient formed anywhere, so no
+/// division rounding enters either the cap decision or the target.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CapLevel {
+    pub capped_count: u16,
+    pub remaining_bps: u16,
+    pub rest_sum: u128,
+}
+
+/// Solve the bounded water-filling level.
+///
+/// A forager is capped exactly when its share of the pool still available
+/// reaches the cap, which is the division-free integer test
+///
+/// ```text
+/// remaining_bps * tau  >=  w_max * rest_sum
+/// ```
+///
+/// Walk the pheromone ranking once, admitting trails to the capped set while
+/// that holds. The result is the same vector the specification's "trim, then
+/// redistribute the excess, then repeat" loop converges to, but with no
+/// termination condition for two implementations to disagree about and no
+/// quotient to round.
+///
+/// `top` must be the largest pheromone values in descending order.
+pub fn solve_cap_level(
+    total_pheromone: u128,
+    top: &[u64],
+    active_count: u32,
+    eff_w_max_bps: u16,
+) -> CapLevel {
+    let w = eff_w_max_bps as u128;
+    if total_pheromone == 0 || active_count == 0 || eff_w_max_bps == 0 {
+        return CapLevel {
+            capped_count: 0,
+            remaining_bps: BPS_DENOM as u16,
+            rest_sum: total_pheromone,
+        };
+    }
+
+    // Keep the remaining share strictly positive.
+    let max_m = (((BPS_DENOM - 1) / w) as usize)
+        .min(top.len())
+        .min(active_count as usize);
+
+    let mut m: usize = 0;
+    let mut prefix: u128 = 0;
+    while m < max_m {
+        let remaining = BPS_DENOM - (m as u128) * w;
+        let rest = total_pheromone.saturating_sub(prefix);
+        if rest == 0 {
+            break;
+        }
+        if remaining.saturating_mul(top[m] as u128) >= w.saturating_mul(rest) {
+            prefix = prefix.saturating_add(top[m] as u128);
+            m += 1;
+        } else {
+            break;
+        }
+    }
+
+    CapLevel {
+        capped_count: m as u16,
+        remaining_bps: (BPS_DENOM - (m as u128) * w) as u16,
+        rest_sum: total_pheromone.saturating_sub(prefix),
+    }
+}
+
+/// Whether a trail sits at the concentration cap under the solved level.
+pub fn is_capped(pheromone: u64, level: &CapLevel, eff_w_max_bps: u16) -> bool {
+    if pheromone == 0 {
+        return false;
+    }
+    (level.remaining_bps as u128).saturating_mul(pheromone as u128)
+        >= (eff_w_max_bps as u128).saturating_mul(level.rest_sum)
+}
+
+/// Legacy divisor form, kept only so the shape of the solution stays visible:
+/// `K = rest_sum * BPS_DENOM / remaining_bps`. Nothing in the program forms
+/// this quotient, because rounding it is what biases every uncapped target at
+/// once.
+pub fn alloc_divisor_of(level: &CapLevel) -> u128 {
+    if level.remaining_bps == 0 {
+        return 0;
+    }
+    level.rest_sum * BPS_DENOM / (level.remaining_bps as u128)
+}
+
+/// A forager's weight in bps under the solved level.
+pub fn weight_bps_from_level(pheromone: u64, level: &CapLevel, eff_w_max_bps: u16) -> u16 {
+    if pheromone == 0 {
+        return 0;
+    }
+    if is_capped(pheromone, level, eff_w_max_bps) {
+        return eff_w_max_bps;
+    }
+    if level.rest_sum == 0 {
+        return 0;
+    }
+    ((level.remaining_bps as u128) * (pheromone as u128) / level.rest_sum) as u16
+}
+
 // ===========================================================================
 // Tests
 // ===========================================================================
