@@ -309,6 +309,37 @@ pub fn weight_bps_from_level(pheromone: u64, level: &CapLevel, eff_w_max_bps: u1
     ((level.remaining_bps as u128) * (pheromone as u128) / level.rest_sum) as u16
 }
 
+/// Capital target for a forager.
+///
+/// Uncapped: `pool * remaining_bps * tau / (BPS * rest_sum)`, widened to 128
+/// bits and multiplied before dividing, so the weight is never materialized
+/// and never rounded twice. Capped: exactly `pool * w_max / BPS`.
+///
+/// Truncation means the per-forager targets sum to slightly UNDER the pool.
+/// That residue is dust and belongs in the vault. Do not redistribute it here:
+/// this function is evaluated one forager at a time by the settlement crank
+/// and has no visibility into any other forager's remainder.
+pub fn allocation_target(
+    pheromone: u64,
+    level: &CapLevel,
+    pool: u64,
+    eff_w_max_bps: u16,
+) -> u64 {
+    if pheromone == 0 || pool == 0 {
+        return 0;
+    }
+    if is_capped(pheromone, level, eff_w_max_bps) {
+        return ((pool as u128) * (eff_w_max_bps as u128) / BPS_DENOM) as u64;
+    }
+    if level.rest_sum == 0 {
+        return 0;
+    }
+    let num = (pool as u128)
+        .saturating_mul(pheromone as u128)
+        .saturating_mul(level.remaining_bps as u128);
+    (num / (BPS_DENOM * level.rest_sum)) as u64
+}
+
 // ===========================================================================
 // Tests
 // ===========================================================================
