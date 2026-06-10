@@ -640,4 +640,40 @@ mod tests {
         // A, the steady star, ends on the strongest trail.
         assert!(finals[0] > finals[4]);
     }
+
+    // -- normalization and water-filling ------------------------------------
+
+    #[test]
+    fn normalization_is_proportional_when_no_cap_binds() {
+        // Three equal trails, cap 5000 bps never binds.
+        let top = [1_000u64, 1_000, 1_000];
+        let k = solve_cap_level(3_000, &top, 3, 5_000);
+        assert_eq!(k.capped_count, 0, "no trail reaches the cap");
+        assert_eq!(k.remaining_bps, 10_000);
+        assert_eq!(k.rest_sum, 3_000);
+        assert_eq!(weight_bps_from_level(1_000, &k, 5_000), 3_333);
+        // Equal trails receive equal capital.
+        assert_eq!(allocation_target(1_000, &k, 900_000, 5_000), 300_000);
+    }
+
+    #[test]
+    fn normalization_is_proportional_to_pheromone() {
+        // 3:1 pheromone ratio maps to a 3:1 capital ratio.
+        let top = [3_000u64, 1_000];
+        let k = solve_cap_level(4_000, &top, 2, 9_000);
+        let a = allocation_target(3_000, &k, 1_000_000, 9_000);
+        let b = allocation_target(1_000, &k, 1_000_000, 9_000);
+        assert_eq!(a, 750_000);
+        assert_eq!(b, 250_000);
+    }
+
+    #[test]
+    fn cap_clamps_a_dominant_trail() {
+        // One forager holds the entire trail; cap 2500 bps holds it to 25%.
+        let top = [1_000_000u64];
+        let k = solve_cap_level(1_000_000, &top, 1, 2_500);
+        let t = allocation_target(1_000_000, &k, 1_000_000_000, 2_500);
+        assert_eq!(t, 250_000_000);
+        assert_eq!(weight_bps_from_level(1_000_000, &k, 2_500), 2_500);
+    }
 }
