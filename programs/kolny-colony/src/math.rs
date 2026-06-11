@@ -676,4 +676,143 @@ mod tests {
         assert_eq!(t, 250_000_000);
         assert_eq!(weight_bps_from_level(1_000_000, &k, 2_500), 2_500);
     }
+
+    #[test]
+    fn water_filling_redistributes_excess_spec_example() {
+        // allocation-spec 10.2, epoch 3. D has been dropped, so the Active set
+        // is A/B/C/E with w_max = 3500 bps and main_pool = 900_000.
+        // A's raw weight is 0.3612 -> capped at 0.35, and the 0.011 excess must
+        // be redistributed across B, C and E.
+        // Pheromone entering epoch 3, carried through the trajectory with the
+        // real deposit values rather than the 3-decimal figures the document
+        // prints for display. Rounding the inputs first is what produced an
+        // earlier wrong expectation here.
+        let a = 2_197_773u64;
+        let b = 1_711_392u64;
+        let c = 1_089_213u64;
+        let e = 1_086_468u64;
+        let s = (a + b + c + e) as u128;
+        let top = [a, b, c, e];
+
+        let k = solve_cap_level(s, &top, 4, 3_500);
+        assert_eq!(k.capped_count, 1, "only A should be capped");
+        assert_eq!(k.remaining_bps, 6_500);
+        assert_eq!(k.rest_sum, (b + c + e) as u128);
+
+        let pool = 900_000u64;
+        let ta = allocation_target(a, &k, pool, 3_500);
+        let tb = allocation_target(b, &k, pool, 3_500);
+        let tc = allocation_target(c, &k, pool, 3_500);
+        let te = allocation_target(e, &k, pool, 3_500);
+
+        // Ground truth, computed independently at 60-digit precision:
+        //   A 315000.0000  B 257562.6017  C 163925.2850  E 163512.1133
+        // summing to exactly 900000. These are the truncations of that.
+        assert_eq!(ta, 315_000);
+        assert_eq!(tb, 257_562);
+        assert_eq!(tc, 163_925);
+        assert_eq!(te, 163_512);
+
+        // A check that does not depend on the tanh implementation at all:
+        //   tau_C - tau_E = 0.8 * 2 * tanh(0.2) + tanh(0.3) - tanh(0.7)
+        // which fixes the C-to-E capital gap at 413 regardless of how tanh is
+        // evaluated. An earlier lookup-table implementation gave 301 here.
+        assert_eq!(tc - te, 413);
+
+        // Forager D's trail was extinguished, so it draws nothing.
+        assert_eq!(allocation_target(0, &k, pool, 3_500), 0);
+
+        // The placed total falls one atom short of the pool. That atom is dust
+        // from truncation and it stays in the vault. Do not redistribute it to
+        // make the total land on the pool exactly: this function is evaluated
+        // one forager at a time by the crank and cannot see any other
+        // forager's remainder, so a largest-remainder rule is not computable
+        // here at all. An off-chain mirror that applies one will disagree with
+        // the chain about what each forager actually receives.
+        let total = ta + tb + tc + te;
+        assert_eq!(total, 899_999);
+        assert_eq!(pool - total, 1, "dust stays in the vault");
+
+        // A is exactly at the cap.
+        assert_eq!(ta, pool * 3_500 / 10_000);
+
+        // The excess really was redistributed: the uncapped three receive more
+        // than their raw normalized share of the pool would have given them.
+        let raw_b = (pool as u128 * b as u128 / s) as u64;
+        assert!(tb > raw_b, "capped excess must flow to the uncapped");
+
+        // Everything is placed, to within integer dust.
+        let total = ta + tb + tc + te;
+        assert!(pool - total <= 4, "unplaced dust was {}", pool - total);
+    }
+
+    #[test]
+    fn water_filling_handles_two_capped_trails() {
+        // Two dominant trails both exceed a 3000 bps cap.
+        let top = [10_000u64, 9_000, 1_000, 500];
+        let s = 20_500u128;
+        let k = solve_cap_level(s, &top, 4, 3_000);
+
+        let pool = 1_000_000u64;
+        let t0 = allocation_target(top[0], &k, pool, 3_000);
+        let t1 = allocation_target(top[1], &k, pool, 3_000);
+        let t2 = allocation_target(top[2], &k, pool, 3_000);
+        let t3 = allocation_target(top[3], &k, pool, 3_000);
+
+        assert_eq!(t0, 300_000);
+        assert_eq!(t1, 300_000);
+        // The remaining 40% is split 1000:500 between the survivors.
+        assert_eq!(t2, 266_666);
+        assert_eq!(t3, 133_333);
+        assert!(pool - (t0 + t1 + t2 + t3) <= 4);
+    }
+
+    #[test]
+    fn water_filling_converges_to_full_allocation() {
+        // Randomish distribution: the solved weights must sum to ~100%.
+        let top = [900u64, 800, 700, 600, 500, 400, 300, 200, 100, 50];
+        let s: u128 = top.iter().map(|v| *v as u128).sum();
+        let k = solve_cap_level(s, &top, top.len() as u32, 2_000);
+        let pool = 10_000_000u64;
+        let total: u64 = top
+            .iter()
+            .map(|t| allocation_target(*t, &k, pool, 2_000))
+            .sum();
+        assert!(
+            pool - total <= top.len() as u64,
+            "allocated {} of {}",
+            total,
+            pool
+        );
+    }
+
+    #[test]
+    fn level_form_differs_from_rounding_a_shared_divisor() {
+        // An earlier version formed the water-filling scalar K as a quotient
+        // and rounded it. Rounding it DOWN over-allocated the pool; rounding it
+        // UP fixed that but still biases every uncapped target at once, because
+        // one rounded divisor is shared by all of them.
+        //
+        // The level form divides once per forager instead, so it agrees with
+        // the exact rational answer where a rounded divisor does not. This test
+        // pins a case where the two disagree, so that "just round K up" cannot
+        // quietly come back, and so a mirror implementing a rounded divisor is
+        // known to diverge rather than assumed to match.
+        let taus = [2_794_609u64, 546_645, 4_837];
+        let w_max = 3_500u16;
+        let pool = 900_000u64;
+        let s: u128 = taus.iter().map(|t| *t as u128).sum();
+        let level = solve_cap_level(s, &taus, 3, w_max);
+
+        // Exact: the two big trails cap, and the last one takes the whole
+        // remaining 30% because it is the only uncapped trail left.
+        let exact_last = allocation_target(taus[2], &level, pool, w_max);
+        assert_eq!(exact_last, 270_000);
+
+        // The same value via a ceiling-rounded shared divisor loses 12 atoms.
+        let k_ceil = (level.rest_sum * BPS_DENOM).div_ceil(level.remaining_bps as u128);
+        let via_divisor = ((pool as u128) * (taus[2] as u128) / k_ceil) as u64;
+        assert_eq!(via_divisor, 269_988);
+        assert_ne!(exact_last, via_divisor);
+    }
 }
