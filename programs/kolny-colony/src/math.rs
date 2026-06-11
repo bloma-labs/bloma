@@ -815,4 +815,119 @@ mod tests {
         assert_eq!(via_divisor, 269_988);
         assert_ne!(exact_last, via_divisor);
     }
+
+    #[test]
+    fn allocation_never_exceeds_the_pool() {
+        // The invariant that matters on-chain: the targets handed to
+        // rebalance_forager must never sum to more than the allocatable pool.
+        //
+        // This is a regression test for a real defect. Truncating the divisor
+        // downward inflated every uncapped target, and in the near-infeasible
+        // regime (the capped set almost filling the pool, one tiny trail left
+        // over) the sum overshot the pool. The case below overshot by 49 units.
+        let pool = 900_000u64;
+        for (taus, w_max) in [
+            (vec![547u64, 2_794_609, 546_645], 3_500u16),
+            (vec![410_597, 5_324, 1_683_032], 3_500),
+            (vec![1_958_076, 4_315_586, 6_047], 3_500),
+            (vec![1, 1, 5_000_000], 3_500),
+            (vec![1, 5_000_000], 5_000),
+        ] {
+            let s: u128 = taus.iter().map(|t| *t as u128).sum();
+            let mut sorted = taus.clone();
+            sorted.sort_unstable_by(|a, b| b.cmp(a));
+            let k = solve_cap_level(s, &sorted, taus.len() as u32, w_max);
+            let total: u64 = taus
+                .iter()
+                .map(|t| allocation_target(*t, &k, pool, w_max))
+                .sum();
+            assert!(
+                total <= pool,
+                "over-allocated {} of a {} pool for taus {:?}",
+                total,
+                pool,
+                taus
+            );
+        }
+    }
+
+    #[test]
+    fn allocation_never_exceeds_the_pool_across_many_shapes() {
+        // Deterministic sweep over skewed distributions, including the
+        // near-infeasible shapes where the rounding direction actually bites.
+        let pool = 1_000_000u64;
+        let mut seed = 12_345u64;
+        let mut next = move || {
+            seed = seed.wrapping_mul(6_364_136_223_846_793_005).wrapping_add(1);
+            (seed >> 33) as u64
+        };
+        for _ in 0..4_000 {
+            let n = (next() % 11 + 2) as usize;
+            let w_max = [500u16, 1_000, 2_000, 2_500, 3_500, 4_000][(next() % 6) as usize];
+            let mut taus: Vec<u64> = (0..n).map(|_| next() % 5_000_000 + 1).collect();
+            taus.sort_unstable_by(|a, b| b.cmp(a));
+            let s: u128 = taus.iter().map(|t| *t as u128).sum();
+            let k = solve_cap_level(s, &taus, n as u32, w_max);
+            let total: u64 = taus
+                .iter()
+                .map(|t| allocation_target(*t, &k, pool, w_max))
+                .sum();
+            assert!(
+                total <= pool,
+                "over-allocated {} of {} for {:?} at w_max {}",
+                total,
+                pool,
+                taus,
+                w_max
+            );
+        }
+    }
+
+    #[test]
+    fn dropped_trail_receives_nothing() {
+        let top = [1_000u64, 0];
+        let k = solve_cap_level(1_000, &top, 2, 9_000);
+        assert_eq!(allocation_target(0, &k, 1_000_000, 9_000), 0);
+    }
+
+    #[test]
+    fn empty_colony_allocates_nothing() {
+        // No trails at all: nothing is allocatable, and a forager whose trail
+        // has evaporated receives nothing regardless of the divisor.
+        assert_eq!(solve_cap_level(0, &[], 0, 2_000).rest_sum, 0);
+        assert_eq!(solve_cap_level(0, &[], 0, 2_000).capped_count, 0);
+        let empty = solve_cap_level(0, &[], 0, 2_000);
+        assert_eq!(allocation_target(0, &empty, 1_000_000, 2_000), 0);
+        assert_eq!(allocation_target(0, &empty, 1_000_000, 2_000), 0);
+        assert_eq!(weight_bps_from_level(0, &empty, 2_000), 0);
+    }
+
+    #[test]
+    fn all_capped_leaves_undeployed_reserve() {
+        // A single forager holds the whole trail but the cap is 25%, so the
+        // cap binds, it receives exactly 25%, and the other 75% must stay in
+        // the vault as reported un-deployed reserve rather than being forced
+        // out to an over-concentrated position.
+        let top = [1_000_000u64];
+        let k = solve_cap_level(1_000_000, &top, 1, 2_500);
+        assert_eq!(k.capped_count, 1);
+        assert_eq!(k.rest_sum, 0, "the capped trail holds the entire sum");
+
+        let pool = 1_000_000u64;
+        let placed = allocation_target(1_000_000, &k, pool, 2_500);
+        assert_eq!(placed, 250_000);
+        assert_eq!(pool - placed, 750_000, "un-deployed reserve");
+        assert_eq!(weight_bps_from_level(1_000_000, &k, 2_500), 2_500);
+    }
+
+    #[test]
+    fn effective_cap_relaxes_only_when_infeasible() {
+        // 10 foragers at 20% each is feasible: no relaxation.
+        assert_eq!(effective_max_weight_bps(2_000, 10, 100), 2_000);
+        // 3 foragers cannot fill the pool at 20% each: relax to 1/3 + margin.
+        assert_eq!(effective_max_weight_bps(2_000, 3, 100), 3_433);
+        // A single forager can take the whole pool once relaxed.
+        assert_eq!(effective_max_weight_bps(2_000, 1, 100), 10_000);
+        assert_eq!(effective_max_weight_bps(2_000, 0, 100), 2_000);
+    }
 }
