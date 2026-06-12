@@ -340,6 +340,34 @@ pub fn allocation_target(
     (num / (BPS_DENOM * level.rest_sum)) as u64
 }
 
+/// Insert a value into a descending-ordered fixed-size top list.
+/// Returns the number of occupied slots after insertion.
+pub fn top_insert(top: &mut [u64; TOP_TRAILS_LEN], count: u8, value: u64) -> u8 {
+    let len = TOP_TRAILS_LEN;
+    let occupied = (count as usize).min(len);
+
+    if occupied == len && value <= top[len - 1] {
+        return count;
+    }
+    let mut pos = occupied;
+    for i in 0..occupied {
+        if value > top[i] {
+            pos = i;
+            break;
+        }
+    }
+    if pos >= len {
+        return count;
+    }
+    let mut i = len - 1;
+    while i > pos {
+        top[i] = top[i - 1];
+        i -= 1;
+    }
+    top[pos] = value;
+    ((occupied + 1).min(len)) as u8
+}
+
 // ===========================================================================
 // Tests
 // ===========================================================================
@@ -929,5 +957,37 @@ mod tests {
         // A single forager can take the whole pool once relaxed.
         assert_eq!(effective_max_weight_bps(2_000, 1, 100), 10_000);
         assert_eq!(effective_max_weight_bps(2_000, 0, 100), 2_000);
+    }
+
+    #[test]
+    fn top_insert_keeps_descending_order() {
+        let mut top = [0u64; TOP_TRAILS_LEN];
+        let mut n = 0u8;
+        for v in [5u64, 100, 3, 70, 1, 90] {
+            n = top_insert(&mut top, n, v);
+        }
+        assert_eq!(n, 6);
+        assert_eq!(&top[..6], &[100, 90, 70, 5, 3, 1]);
+        for w in top.windows(2) {
+            assert!(w[0] >= w[1]);
+        }
+    }
+
+    #[test]
+    fn top_insert_saturates_at_capacity() {
+        let mut top = [0u64; TOP_TRAILS_LEN];
+        let mut n = 0u8;
+        for i in 0..100u64 {
+            n = top_insert(&mut top, n, i);
+        }
+        assert_eq!(n as usize, TOP_TRAILS_LEN);
+        assert_eq!(top[0], 99);
+        // Only the largest survive.
+        assert_eq!(top[TOP_TRAILS_LEN - 1], 99 - (TOP_TRAILS_LEN as u64 - 1));
+        // A small value is rejected once full.
+        let before = top;
+        n = top_insert(&mut top, n, 1);
+        assert_eq!(top, before);
+        assert_eq!(n as usize, TOP_TRAILS_LEN);
     }
 }
