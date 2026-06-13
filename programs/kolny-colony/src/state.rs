@@ -11,6 +11,8 @@
 
 use anchor_lang::prelude::*;
 
+use crate::math::TOP_TRAILS_LEN;
+
 /// Global colony configuration and epoch state. Singleton, seed `[b"colony"]`.
 #[account]
 #[derive(Default)]
@@ -265,4 +267,39 @@ pub struct RedemptionRequest {
 impl RedemptionRequest {
     // 32 + 16 + 24 + 1 + 7 = 80
     pub const LEN: usize = 80;
+}
+
+/// The largest trails seen during the current settlement.
+/// Singleton, seed `[b"trail_board"]`.
+///
+/// Only the largest `floor(1 / w_max)` trails can ever sit at the concentration
+/// cap, so keeping the top `TOP_TRAILS_LEN` values is enough to solve the
+/// water-filling level exactly at finalize, without a pass over every forager.
+#[account]
+pub struct TrailBoard {
+    pub top: [u64; TOP_TRAILS_LEN],
+    pub count: u8,
+    pub bump: u8,
+    pub _padding: [u8; 6],
+}
+
+impl Default for TrailBoard {
+    fn default() -> Self {
+        Self {
+            top: [0u64; TOP_TRAILS_LEN],
+            count: 0,
+            bump: 0,
+            _padding: [0u8; 6],
+        }
+    }
+}
+
+impl TrailBoard {
+    // 21*8 + 1 + 1 + 6 = 176
+    pub const LEN: usize = 8 * TOP_TRAILS_LEN + 8;
+
+    pub fn reset(&mut self) {
+        self.top = [0u64; TOP_TRAILS_LEN];
+        self.count = 0;
+    }
 }

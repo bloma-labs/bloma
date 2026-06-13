@@ -77,4 +77,8 @@ pub mod kolny_colony {
     pub fn open_incinerator_vault(ctx: Context<OpenIncineratorVault>) -> Result<()> {
         admin::open_incinerator_vault(ctx)
     }
+
+    pub fn initialize_trail_board(ctx: Context<InitializeTrailBoard>) -> Result<()> {
+        admin::initialize_trail_board(ctx)
+    }
 }

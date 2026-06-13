@@ -977,6 +977,49 @@ pub fn open_incinerator_vault(ctx: Context<OpenIncineratorVault>) -> Result<()> 
 }
 
 // ---------------------------------------------------------------------------
+// 11. initialize_trail_board
+// ---------------------------------------------------------------------------
+
+#[derive(Accounts)]
+pub struct InitializeTrailBoard<'info> {
+    #[account(
+        seeds = [SEED_COLONY],
+        bump = config.bump,
+        has_one = authority @ ColonyError::NotAuthority,
+    )]
+    pub config: Box<Account<'info, ColonyConfig>>,
+
+    #[account(
+        init,
+        payer = authority,
+        space = 8 + TrailBoard::LEN,
+        seeds = [SEED_TRAIL_BOARD],
+        bump
+    )]
+    pub trail_board: Box<Account<'info, TrailBoard>>,
+
+    #[account(mut)]
+    pub authority: Signer<'info>,
+
+    pub system_program: Program<'info, System>,
+}
+
+/// Create the scratch board the settlement crank fills with the largest trails
+/// it sees, so the water-filling level can be solved at finalize without a pass
+/// over every forager. It starts empty and is reset at the start of each
+/// settlement.
+pub fn initialize_trail_board(ctx: Context<InitializeTrailBoard>) -> Result<()> {
+    let board_bump = ctx.bumps.trail_board;
+
+    let board: &mut TrailBoard = &mut ctx.accounts.trail_board;
+
+    board.reset();
+    board.bump = board_bump;
+
+    Ok(())
+}
+
+// ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
 
