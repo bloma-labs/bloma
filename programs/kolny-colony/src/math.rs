@@ -181,9 +181,10 @@ pub fn update_pheromone(current: u64, deposit_fp6: i64, rho_bps: u16, ceil: u64)
 // ---------------------------------------------------------------------------
 
 /// The most foragers that can simultaneously sit at the concentration cap.
-/// Tracking the top handful of trails is enough to solve the cap during the
-/// crank without holding the whole colony in memory.
-pub const MAX_CAPPED_TRAILS: usize = 15;
+/// `m * w_max <= 1`, so at most `floor(BPS_DENOM / w_max_bps)` are capped. With
+/// the minimum allowed `w_max_bps` of 500 that is 20, so tracking the top 21
+/// trails is always enough to solve the cap exactly.
+pub const MAX_CAPPED_TRAILS: usize = 20;
 pub const TOP_TRAILS_LEN: usize = MAX_CAPPED_TRAILS + 1;
 
 /// Effective concentration cap.

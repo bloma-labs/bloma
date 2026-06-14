@@ -303,3 +303,15 @@ impl TrailBoard {
         self.count = 0;
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn trail_board_holds_enough_slots_for_the_tightest_cap() {
+        // The minimum allowed w_max is 500 bps, so at most 20 trails can be
+        // capped and the board needs 21 slots to see the first uncapped one.
+        assert!(TOP_TRAILS_LEN >= (10_000 / crate::constants::MIN_W_MAX_BPS as usize) + 1);
+    }
+}
