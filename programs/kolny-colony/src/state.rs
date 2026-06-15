@@ -307,6 +307,82 @@ impl TrailBoard {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use anchor_lang::AnchorSerialize;
+
+    /// The serialized length of a default instance must equal `LEN` exactly.
+    /// Too small and account creation fails at runtime; too large and rent is
+    /// wasted. Either way this catches it before a validator ever sees it.
+    macro_rules! assert_len {
+        ($t:ty, $name:literal) => {{
+            let v = <$t>::default();
+            let bytes = v.try_to_vec().unwrap();
+            assert_eq!(
+                bytes.len(),
+                <$t>::LEN,
+                "{} serialized to {} bytes but LEN is {}",
+                $name,
+                bytes.len(),
+                <$t>::LEN
+            );
+            assert_eq!(
+                <$t>::LEN % 8,
+                0,
+                "{} LEN {} is not 8-byte aligned",
+                $name,
+                <$t>::LEN
+            );
+        }};
+    }
+
+    #[test]
+    fn serialized_len_matches_colony_config() {
+        assert_len!(ColonyConfig, "ColonyConfig");
+        assert_eq!(ColonyConfig::LEN, 304);
+    }
+
+    #[test]
+    fn serialized_len_matches_forager_state() {
+        assert_len!(ForagerState, "ForagerState");
+        assert_eq!(ForagerState::LEN, 224);
+    }
+
+    #[test]
+    fn serialized_len_matches_brood_vault_state() {
+        assert_len!(BroodVaultState, "BroodVaultState");
+        assert_eq!(BroodVaultState::LEN, 128);
+    }
+
+    #[test]
+    fn serialized_len_matches_depositor_position() {
+        assert_len!(DepositorPosition, "DepositorPosition");
+        assert_eq!(DepositorPosition::LEN, 56);
+    }
+
+    #[test]
+    fn serialized_len_matches_risk_cache_state() {
+        assert_len!(RiskCacheState, "RiskCacheState");
+        assert_eq!(RiskCacheState::LEN, 104);
+    }
+
+    #[test]
+    fn serialized_len_matches_redemption_request() {
+        assert_len!(RedemptionRequest, "RedemptionRequest");
+        assert_eq!(RedemptionRequest::LEN, 80);
+    }
+
+    #[test]
+    fn serialized_len_matches_trail_board() {
+        assert_len!(TrailBoard, "TrailBoard");
+        assert_eq!(TrailBoard::LEN, 176);
+    }
+
+    #[test]
+    fn nav_is_idle_plus_outstanding() {
+        let mut b = BroodVaultState::default();
+        b.idle_base = 400;
+        b.outstanding_principal = 600;
+        assert_eq!(b.nav(), 1_000);
+    }
 
     #[test]
     fn trail_board_holds_enough_slots_for_the_tightest_cap() {
