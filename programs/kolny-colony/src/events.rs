@@ -50,3 +50,48 @@ pub struct RiskCacheInitialized {
     pub cache_vault: Pubkey,
     pub incinerator_vault: Pubkey,
 }
+
+#[event]
+pub struct ForagerRegistered {
+    pub forager: Pubkey,
+    pub operator: Pubkey,
+    pub forager_id: u64,
+    pub bond: u64,
+    pub registered_epoch: u64,
+}
+
+#[event]
+pub struct ForagerVaultOpened {
+    pub forager: Pubkey,
+    pub forager_vault: Pubkey,
+}
+
+#[event]
+pub struct ForagerPromoted {
+    pub forager: Pubkey,
+    pub epoch: u64,
+    pub seeded_pheromone: u64,
+}
+
+#[event]
+pub struct ForagerDemoted {
+    pub forager: Pubkey,
+    pub epoch: u64,
+    pub weight_bps: u16,
+    pub returned_principal: u64,
+}
+
+#[event]
+pub struct ForagerRetired {
+    pub forager: Pubkey,
+    pub operator: Pubkey,
+    pub returned_bond: u64,
+    pub swept_base: u64,
+}
+
+#[event]
+pub struct BondToppedUp {
+    pub forager: Pubkey,
+    pub amount: u64,
+    pub bond: u64,
+}
