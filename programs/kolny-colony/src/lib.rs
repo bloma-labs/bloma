@@ -81,4 +81,19 @@ pub mod kolny_colony {
     pub fn initialize_trail_board(ctx: Context<InitializeTrailBoard>) -> Result<()> {
         admin::initialize_trail_board(ctx)
     }
+
+    // -- forager lifecycle ---------------------------------------------------
+
+    /// Creates the forager record only. The sub-account is opened by
+    /// `open_forager_vault` (its address derives from this record, so it cannot
+    /// exist first) and the bond is posted by `top_up_bond`. A forager starts
+    /// as a Scout with a zero bond and receives no main-pool capital until it
+    /// is promoted, so the three-step bootstrap is safe to interleave.
+    pub fn register_forager(
+        ctx: Context<RegisterForager>,
+        forager_id: u64,
+        strategy_meta: [u8; 32],
+    ) -> Result<()> {
+        forager::register_forager(ctx, forager_id, strategy_meta)
+    }
 }

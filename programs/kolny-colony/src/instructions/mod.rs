@@ -7,5 +7,7 @@
 //! is unchanged.
 
 pub mod admin;
+pub mod forager;
 
 pub use admin::*;
+pub use forager::*;

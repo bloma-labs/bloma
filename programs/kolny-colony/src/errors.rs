@@ -12,10 +12,16 @@ pub enum ColonyError {
     Paused,
     #[msg("Wrong settlement phase for this instruction")]
     WrongPhase,
+    #[msg("Bond is below the configured minimum")]
+    BelowMinBond,
+    #[msg("Forager is retired or slashed")]
+    ForagerInactive,
     #[msg("Signer is not the colony authority")]
     NotAuthority,
     #[msg("No pending authority to accept")]
     NoPendingAuthority,
+    #[msg("Registration and retirement are frozen during settlement")]
+    RegistrationFrozenDuringSettlement,
     #[msg("Amount must be greater than zero")]
     ZeroAmount,
     #[msg("Mint does not match the colony base mint")]
