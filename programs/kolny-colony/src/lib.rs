@@ -96,4 +96,8 @@ pub mod kolny_colony {
     ) -> Result<()> {
         forager::register_forager(ctx, forager_id, strategy_meta)
     }
+
+    pub fn open_forager_vault(ctx: Context<OpenForagerVault>, forager_id: u64) -> Result<()> {
+        forager::open_forager_vault(ctx, forager_id)
+    }
 }

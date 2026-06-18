@@ -144,3 +144,105 @@ pub fn register_forager(
 
     Ok(())
 }
+
+// ---------------------------------------------------------------------------
+// open_forager_vault
+// ---------------------------------------------------------------------------
+
+#[derive(Accounts)]
+#[instruction(forager_id: u64)]
+pub struct OpenForagerVault<'info> {
+    #[account(mut)]
+    pub operator: Signer<'info>,
+
+    #[account(
+        mut,
+        seeds = [SEED_COLONY],
+        bump = config.bump,
+    )]
+    pub config: Box<Account<'info, ColonyConfig>>,
+
+    #[account(
+        mut,
+        seeds = [SEED_FORAGER, operator.key().as_ref(), &forager_id.to_le_bytes()],
+        bump = forager.bump,
+        has_one = operator,
+    )]
+    pub forager: Box<Account<'info, ForagerState>>,
+
+    #[account(
+        constraint = base_mint.key() == config.base_mint @ ColonyError::BaseMintMismatch,
+    )]
+    pub base_mint: Box<InterfaceAccount<'info, Mint>>,
+
+    /// The forager's isolated sub-account. Its authority is the forager record
+    /// PDA, so the operator can never move base asset out of it by signing
+    /// directly; only this program can, and only along the paths written here.
+    #[account(
+        init,
+        payer = operator,
+        seeds = [SEED_FORAGER_VAULT, forager.key().as_ref()],
+        bump,
+        token::mint = base_mint,
+        token::authority = forager,
+        token::token_program = token_program,
+    )]
+    pub forager_vault: Box<InterfaceAccount<'info, TokenAccount>>,
+
+    pub token_program: Interface<'info, TokenInterface>,
+    pub system_program: Program<'info, System>,
+}
+
+/// Opens the forager's isolated base-asset sub-account.
+///
+/// `init` makes this idempotent in the only direction that matters: a second
+/// call on an existing sub-account fails rather than replacing the address a
+/// balance is already sitting behind.
+pub fn open_forager_vault(ctx: Context<OpenForagerVault>, _forager_id: u64) -> Result<()> {
+    // Opening the sub-account is what makes a forager settleable, so the
+    // population must not grow while a settlement is in flight; that would move
+    // the crank's finish line underneath it.
+    require!(
+        ctx.accounts.config.epoch_phase == PHASE_OPEN,
+        ColonyError::RegistrationFrozenDuringSettlement
+    );
+
+    let vault_key = ctx.accounts.forager_vault.key();
+    let vault_bump = ctx.bumps.forager_vault;
+    let current_epoch = ctx.accounts.config.epoch;
+
+    let forager = &mut ctx.accounts.forager;
+    forager.forager_vault = vault_key;
+    forager.vault_bump = vault_bump;
+
+    // The crank guard is `last_settled_epoch < settling_epoch`, and the next
+    // settlement runs with `settling_epoch == config.epoch`. Marking the
+    // forager as last settled one epoch back is what lets its first
+    // `settle_forager` call succeed. Marking it at the current epoch would make
+    // that call permanently unsatisfiable while the forager still counted
+    // toward the completion target, which would deadlock every future
+    // finalize. Epoch numbering starts at 1 so this subtraction is always
+    // meaningful. Settling a forager that has done nothing yet is harmless: it
+    // measures zero principal and deposits no pheromone.
+    forager.last_settled_epoch = current_epoch.saturating_sub(1);
+
+    let forager_key = forager.key();
+
+    // A forager counts toward the crank only once it has a sub-account to
+    // measure. Counting it at registration instead would let anyone register a
+    // record they never fund and permanently stall settlement, because
+    // `settle_forager` cannot resolve a sub-account that does not exist and
+    // `finalize_settlement` requires every counted forager to have settled.
+    let config = &mut ctx.accounts.config;
+    config.settleable_forager_count = config
+        .settleable_forager_count
+        .checked_add(1)
+        .ok_or(ColonyError::Overflow)?;
+
+    emit!(ForagerVaultOpened {
+        forager: forager_key,
+        forager_vault: vault_key,
+    });
+
+    Ok(())
+}
