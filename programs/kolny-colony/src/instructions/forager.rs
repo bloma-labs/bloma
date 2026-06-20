@@ -246,3 +246,84 @@ pub fn open_forager_vault(ctx: Context<OpenForagerVault>, _forager_id: u64) -> R
 
     Ok(())
 }
+
+// ---------------------------------------------------------------------------
+// top_up_bond
+// ---------------------------------------------------------------------------
+
+#[derive(Accounts)]
+#[instruction(forager_id: u64)]
+pub struct TopUpBond<'info> {
+    pub operator: Signer<'info>,
+
+    #[account(
+        mut,
+        seeds = [SEED_FORAGER, operator.key().as_ref(), &forager_id.to_le_bytes()],
+        bump = forager.bump,
+        has_one = operator,
+    )]
+    pub forager: Box<Account<'info, ForagerState>>,
+
+    pub base_mint: Box<InterfaceAccount<'info, Mint>>,
+
+    #[account(
+        mut,
+        seeds = [SEED_FORAGER_VAULT, forager.key().as_ref()],
+        bump = forager.vault_bump,
+        constraint = forager_vault.key() == forager.forager_vault @ ColonyError::VaultMismatch,
+        token::mint = base_mint,
+        token::authority = forager,
+    )]
+    pub forager_vault: Box<InterfaceAccount<'info, TokenAccount>>,
+
+    #[account(
+        mut,
+        token::mint = base_mint,
+        token::authority = operator,
+    )]
+    pub operator_token_account: Box<InterfaceAccount<'info, TokenAccount>>,
+
+    pub token_program: Interface<'info, TokenInterface>,
+}
+
+/// Posts additional bond into the forager's sub-account.
+///
+/// The transferred amount lands in the same token account the forager trades
+/// from, and `forager.bond` records how much of that balance belongs to the
+/// operator. Settlement subtracts `bond` before measuring realized performance,
+/// which is what stops a bond top-up from reading as a trading profit and
+/// inflating the trail.
+pub fn top_up_bond(ctx: Context<TopUpBond>, _forager_id: u64, amount: u64) -> Result<()> {
+    require!(amount > 0, ColonyError::ZeroAmount);
+
+    // A retired forager's sub-account has already been drained and swept, and
+    // `retire_forager` refuses to run twice. Base asset sent in after that
+    // point would have no way back out, so the deposit is refused instead.
+    require!(
+        ctx.accounts.forager.status != STATUS_RETIRED,
+        ColonyError::ForagerInactive
+    );
+
+    utils::transfer_from_user(
+        &ctx.accounts.token_program,
+        &ctx.accounts.operator_token_account,
+        &ctx.accounts.forager_vault,
+        &ctx.accounts.base_mint,
+        &ctx.accounts.operator,
+        amount,
+    )?;
+
+    let forager = &mut ctx.accounts.forager;
+    forager.bond = forager
+        .bond
+        .checked_add(amount)
+        .ok_or(ColonyError::Overflow)?;
+
+    emit!(BondToppedUp {
+        forager: forager.key(),
+        amount,
+        bond: forager.bond,
+    });
+
+    Ok(())
+}
