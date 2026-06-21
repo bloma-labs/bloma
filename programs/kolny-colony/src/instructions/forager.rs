@@ -327,3 +327,84 @@ pub fn top_up_bond(ctx: Context<TopUpBond>, _forager_id: u64, amount: u64) -> Re
 
     Ok(())
 }
+
+// ---------------------------------------------------------------------------
+// promote_forager
+// ---------------------------------------------------------------------------
+
+#[derive(Accounts)]
+#[instruction(forager_id: u64)]
+pub struct PromoteForager<'info> {
+    /// Permissionless caller. Promotion is decided entirely from committed
+    /// on-chain state, so anyone may push a qualifying scout through.
+    pub cranker: Signer<'info>,
+
+    /// CHECK: not read and never signs. It is pinned to `forager.operator` by
+    /// `has_one` and by the forager PDA seeds, and exists only so the record's
+    /// address can be derived.
+    pub operator: UncheckedAccount<'info>,
+
+    #[account(
+        seeds = [SEED_COLONY],
+        bump = config.bump,
+    )]
+    pub config: Box<Account<'info, ColonyConfig>>,
+
+    #[account(
+        mut,
+        seeds = [SEED_FORAGER, operator.key().as_ref(), &forager_id.to_le_bytes()],
+        bump = forager.bump,
+        has_one = operator,
+    )]
+    pub forager: Box<Account<'info, ForagerState>>,
+}
+
+/// Promotes a Scout into the pheromone-weighted main pool.
+///
+/// Permissionless by design. Every criterion below is read from state this
+/// program wrote itself during settlement, so there is nothing for an operator
+/// to submit and nothing for the authority to wave through.
+pub fn promote_forager(ctx: Context<PromoteForager>, _forager_id: u64) -> Result<()> {
+    require!(
+        ctx.accounts.forager.status == STATUS_SCOUT,
+        ColonyError::ForagerNotScout
+    );
+
+    let config = &ctx.accounts.config;
+    let forager = &mut ctx.accounts.forager;
+
+    // `promote_min_trades` is evaluated against `realized_epochs`, the number of
+    // settled epochs that closed with a non-zero realized result. The program
+    // cannot observe individual trades: it sees sub-account balances at
+    // settlement, not fills. The alternative -- having the operator submit a
+    // trade count -- would create a trusted oracle over a promotion gate, which
+    // is exactly the manipulation surface this design removes elsewhere. So the
+    // gate is stated in the units the chain can actually verify.
+    let criteria_met = forager.scout_epochs >= config.promote_min_epochs as u64
+        && forager.realized_epochs >= config.promote_min_trades as u64
+        && forager.scout_perf_cum_bps >= config.promote_perf_bar_bps as i64
+        && forager.realized_pnl_cumulative >= 0;
+    require!(criteria_met, ColonyError::PromotionCriteriaNotMet);
+
+    // Skin in the game gates capital. A scout with a thin bond stays a scout.
+    require!(forager.bond >= config.min_bond, ColonyError::BelowMinBond);
+
+    // Seed the trail from scout-phase performance but cap it, so a promotion
+    // cannot place a brand-new operator at the top of the trail and hand it the
+    // concentration cap on its first main-pool epoch.
+    let seeded_pheromone = forager.pheromone.min(config.promote_tau_seed_cap);
+    forager.pheromone = seeded_pheromone;
+    forager.status = STATUS_ACTIVE;
+
+    // `active_forager_count` is deliberately untouched: it is the population
+    // that was Active at the last finalize, and only settlement may move it.
+    // `settleable_forager_count` already counts this forager from registration.
+
+    emit!(ForagerPromoted {
+        forager: forager.key(),
+        epoch: config.epoch,
+        seeded_pheromone,
+    });
+
+    Ok(())
+}

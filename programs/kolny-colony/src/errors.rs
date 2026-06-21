@@ -14,12 +14,16 @@ pub enum ColonyError {
     WrongPhase,
     #[msg("Bond is below the configured minimum")]
     BelowMinBond,
+    #[msg("Forager is not a scout")]
+    ForagerNotScout,
     #[msg("Forager is retired or slashed")]
     ForagerInactive,
     #[msg("Signer is not the colony authority")]
     NotAuthority,
     #[msg("No pending authority to accept")]
     NoPendingAuthority,
+    #[msg("Promotion criteria not met")]
+    PromotionCriteriaNotMet,
     #[msg("Registration and retirement are frozen during settlement")]
     RegistrationFrozenDuringSettlement,
     #[msg("Amount must be greater than zero")]
