@@ -16,6 +16,8 @@ pub enum ColonyError {
     BelowMinBond,
     #[msg("Forager is not a scout")]
     ForagerNotScout,
+    #[msg("Forager is not active")]
+    ForagerNotActive,
     #[msg("Forager is retired or slashed")]
     ForagerInactive,
     #[msg("Signer is not the colony authority")]
@@ -32,4 +34,6 @@ pub enum ColonyError {
     BaseMintMismatch,
     #[msg("Token account owner or mint does not match the expected vault")]
     VaultMismatch,
+    #[msg("Forager still holds principal; settle and unwind before retiring")]
+    ForagerStillDeployed,
 }

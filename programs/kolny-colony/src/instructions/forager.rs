@@ -408,3 +408,183 @@ pub fn promote_forager(ctx: Context<PromoteForager>, _forager_id: u64) -> Result
 
     Ok(())
 }
+
+// ---------------------------------------------------------------------------
+// retire_forager
+// ---------------------------------------------------------------------------
+
+#[derive(Accounts)]
+#[instruction(forager_id: u64)]
+pub struct RetireForager<'info> {
+    /// Either the forager's operator or the colony authority. Checked in the
+    /// handler, because `has_one` alone would close the authority path.
+    pub caller: Signer<'info>,
+
+    /// CHECK: pinned to `forager.operator` by `has_one` and by the forager PDA
+    /// seeds. It does not sign here -- the authority may also retire a forager,
+    /// and the bond returns to the operator on either path.
+    pub operator: UncheckedAccount<'info>,
+
+    #[account(
+        mut,
+        seeds = [SEED_COLONY],
+        bump = config.bump,
+    )]
+    pub config: Box<Account<'info, ColonyConfig>>,
+
+    #[account(
+        mut,
+        seeds = [SEED_BROOD],
+        bump = brood.bump,
+    )]
+    pub brood: Box<Account<'info, BroodVaultState>>,
+
+    #[account(
+        mut,
+        seeds = [SEED_FORAGER, operator.key().as_ref(), &forager_id.to_le_bytes()],
+        bump = forager.bump,
+        has_one = operator,
+    )]
+    pub forager: Box<Account<'info, ForagerState>>,
+
+    #[account(
+        constraint = base_mint.key() == config.base_mint @ ColonyError::BaseMintMismatch,
+    )]
+    pub base_mint: Box<InterfaceAccount<'info, Mint>>,
+
+    #[account(
+        mut,
+        seeds = [SEED_FORAGER_VAULT, forager.key().as_ref()],
+        bump = forager.vault_bump,
+        constraint = forager_vault.key() == forager.forager_vault @ ColonyError::VaultMismatch,
+        token::mint = base_mint,
+        token::authority = forager,
+    )]
+    pub forager_vault: Box<InterfaceAccount<'info, TokenAccount>>,
+
+    /// Destination for the returned bond. Must be owned by the operator, which
+    /// holds even when the authority is the one retiring the forager.
+    #[account(
+        mut,
+        token::mint = base_mint,
+        token::authority = operator,
+    )]
+    pub operator_token_account: Box<InterfaceAccount<'info, TokenAccount>>,
+
+    #[account(
+        mut,
+        seeds = [SEED_BROOD_VAULT],
+        bump = brood.vault_bump,
+        constraint = vault_base.key() == brood.vault_base @ ColonyError::VaultMismatch,
+        token::mint = base_mint,
+    )]
+    pub vault_base: Box<InterfaceAccount<'info, TokenAccount>>,
+
+    pub token_program: Interface<'info, TokenInterface>,
+}
+
+/// Retires a forager and unwinds its sub-account.
+///
+/// The split is exact and in the depositors' favor by construction: at most
+/// `bond` goes back to the operator, and everything above it belongs to the
+/// colony and is swept to the Brood Vault. If the sub-account holds less than
+/// the recorded bond -- which is what a losing forager looks like after the
+/// loss waterfall has eaten into collateral -- the operator gets back only what
+/// is actually there.
+pub fn retire_forager(ctx: Context<RetireForager>, forager_id: u64) -> Result<()> {
+    require!(
+        ctx.accounts.config.epoch_phase == PHASE_OPEN,
+        ColonyError::RegistrationFrozenDuringSettlement
+    );
+
+    // `has_one = operator` binds the record to the operator account, but the
+    // operator does not have to be the signer: the colony authority can retire
+    // a forager that has stopped responding. One of the two must have signed.
+    let caller = ctx.accounts.caller.key();
+    require!(
+        caller == ctx.accounts.forager.operator || caller == ctx.accounts.config.authority,
+        ColonyError::NotAuthority
+    );
+
+    // Retiring twice would decrement the settleable population twice and hand
+    // back a bond that is no longer there.
+    require!(
+        ctx.accounts.forager.status != STATUS_RETIRED,
+        ColonyError::ForagerInactive
+    );
+
+    // Deployed colony capital cannot be force-recalled from a live position, so
+    // the unwind has to happen first, through settlement and rebalancing.
+    require!(
+        ctx.accounts.forager.principal == 0,
+        ColonyError::ForagerStillDeployed
+    );
+
+    let balance = ctx.accounts.forager_vault.amount;
+    let returned_bond = ctx.accounts.forager.bond.min(balance);
+    let swept_base = balance.saturating_sub(returned_bond);
+
+    let forager_key = ctx.accounts.forager.key();
+    let operator_key = ctx.accounts.operator.key();
+    let id_bytes = forager_id.to_le_bytes();
+    let forager_bump = ctx.accounts.forager.bump;
+
+    // The sub-account's authority is the forager record PDA, so the record
+    // signs its own withdrawals. Seed order matches the derivation exactly,
+    // with the stored bump last.
+    let signer_seeds: &[&[&[u8]]] = &[&[
+        SEED_FORAGER,
+        operator_key.as_ref(),
+        &id_bytes,
+        &[forager_bump],
+    ]];
+    let forager_authority = ctx.accounts.forager.to_account_info();
+
+    utils::transfer_signed(
+        &ctx.accounts.token_program,
+        &ctx.accounts.forager_vault,
+        &ctx.accounts.operator_token_account,
+        &ctx.accounts.base_mint,
+        &forager_authority,
+        signer_seeds,
+        returned_bond,
+    )?;
+
+    utils::transfer_signed(
+        &ctx.accounts.token_program,
+        &ctx.accounts.forager_vault,
+        &ctx.accounts.vault_base,
+        &ctx.accounts.base_mint,
+        &forager_authority,
+        signer_seeds,
+        swept_base,
+    )?;
+
+    // The swept remainder becomes idle colony liquidity. `idle_base` is a
+    // credited counter, never a read of the token balance, which is what keeps
+    // an unsolicited transfer into the vault from moving the share price.
+    ctx.accounts.brood.idle_base = ctx
+        .accounts
+        .brood
+        .idle_base
+        .checked_add(swept_base)
+        .ok_or(ColonyError::Overflow)?;
+
+    ctx.accounts.forager.bond = 0;
+    ctx.accounts.forager.status = STATUS_RETIRED;
+
+    ctx.accounts.config.settleable_forager_count = ctx
+        .accounts
+        .config
+        .settleable_forager_count
+        .saturating_sub(1);
+
+    emit!(ForagerRetired {
+        forager: forager_key,
+        operator: operator_key,
+        returned_bond,
+        swept_base,
+    });
+
+    Ok(())
+}

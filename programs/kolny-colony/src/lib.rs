@@ -105,6 +105,10 @@ pub mod kolny_colony {
         forager::promote_forager(ctx, forager_id)
     }
 
+    pub fn retire_forager(ctx: Context<RetireForager>, forager_id: u64) -> Result<()> {
+        forager::retire_forager(ctx, forager_id)
+    }
+
     pub fn top_up_bond(ctx: Context<TopUpBond>, forager_id: u64, amount: u64) -> Result<()> {
         forager::top_up_bond(ctx, forager_id, amount)
     }
