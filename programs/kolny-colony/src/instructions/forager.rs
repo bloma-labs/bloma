@@ -588,3 +588,34 @@ pub fn retire_forager(ctx: Context<RetireForager>, forager_id: u64) -> Result<()
 
     Ok(())
 }
+
+// ---------------------------------------------------------------------------
+// heartbeat
+// ---------------------------------------------------------------------------
+
+#[derive(Accounts)]
+#[instruction(forager_id: u64)]
+pub struct Heartbeat<'info> {
+    pub operator: Signer<'info>,
+
+    #[account(
+        mut,
+        seeds = [SEED_FORAGER, operator.key().as_ref(), &forager_id.to_le_bytes()],
+        bump = forager.bump,
+        has_one = operator,
+    )]
+    pub forager: Box<Account<'info, ForagerState>>,
+}
+
+/// Records operator liveness.
+///
+/// This is the evidence behind the non-response slash condition: an operator
+/// that stops answering for longer than `nonresponse_timeout_epochs` leaves a
+/// stale `last_heartbeat_ts` behind, and `slash_forager` reads that timestamp
+/// rather than any off-chain report. No event is emitted -- a heartbeat is a
+/// timestamp, not a history entry, and emitting one per operator per epoch
+/// would bury the streams the indexer actually rebuilds history from.
+pub fn heartbeat(ctx: Context<Heartbeat>, _forager_id: u64) -> Result<()> {
+    ctx.accounts.forager.last_heartbeat_ts = Clock::get()?.unix_timestamp;
+    Ok(())
+}

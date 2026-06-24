@@ -112,4 +112,8 @@ pub mod kolny_colony {
     pub fn top_up_bond(ctx: Context<TopUpBond>, forager_id: u64, amount: u64) -> Result<()> {
         forager::top_up_bond(ctx, forager_id, amount)
     }
+
+    pub fn heartbeat(ctx: Context<Heartbeat>, forager_id: u64) -> Result<()> {
+        forager::heartbeat(ctx, forager_id)
+    }
 }
