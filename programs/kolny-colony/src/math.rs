@@ -369,6 +369,30 @@ pub fn top_insert(top: &mut [u64; TOP_TRAILS_LEN], count: u8, value: u64) -> u8 
     ((occupied + 1).min(len)) as u8
 }
 
+// ---------------------------------------------------------------------------
+// Shares (ERC4626 style with a virtual offset)
+// ---------------------------------------------------------------------------
+
+/// Virtual offset that makes the first-depositor rounding attack unprofitable.
+pub const VIRTUAL_SHARES: u128 = 1_000_000;
+pub const VIRTUAL_ASSETS: u128 = 1;
+
+/// Shares minted for a deposit. Rounds DOWN, favoring the vault.
+///
+/// `nav` is an accounting counter (`idle_base + outstanding_principal`), never
+/// a live token balance. That is what makes a direct token transfer into a
+/// vault account unable to move the share price: an unsolicited transfer is
+/// simply uncredited and cannot inflate anyone's redemption value.
+pub fn shares_for_deposit(assets: u64, total_shares: u128, nav: u64) -> u128 {
+    (assets as u128) * (total_shares + VIRTUAL_SHARES) / (nav as u128 + VIRTUAL_ASSETS)
+}
+
+/// Assets returned for burning shares. Rounds DOWN, favoring the vault.
+pub fn assets_for_shares(shares: u128, total_shares: u128, nav: u64) -> u64 {
+    let a = shares * (nav as u128 + VIRTUAL_ASSETS) / (total_shares + VIRTUAL_SHARES);
+    a.min(u64::MAX as u128) as u64
+}
+
 // ===========================================================================
 // Tests
 // ===========================================================================
