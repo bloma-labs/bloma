@@ -95,3 +95,45 @@ pub struct BondToppedUp {
     pub amount: u64,
     pub bond: u64,
 }
+
+#[event]
+pub struct Deposited {
+    pub depositor: Pubkey,
+    pub assets: u64,
+    pub shares: u128,
+    pub nav_after: u64,
+    pub total_shares_after: u128,
+}
+
+#[event]
+pub struct Withdrawn {
+    pub depositor: Pubkey,
+    pub shares: u128,
+    pub assets: u64,
+    pub nav_after: u64,
+    pub total_shares_after: u128,
+}
+
+#[event]
+pub struct RedemptionRequested {
+    pub depositor: Pubkey,
+    pub request_id: u64,
+    pub shares: u128,
+    pub requested_epoch: u64,
+}
+
+#[event]
+pub struct RedemptionFulfilled {
+    pub depositor: Pubkey,
+    pub request_id: u64,
+    pub shares_burned: u128,
+    pub assets_paid: u64,
+    pub fully_settled: bool,
+}
+
+#[event]
+pub struct CacheFunded {
+    pub funder: Pubkey,
+    pub amount: u64,
+    pub cache_balance: u64,
+}
