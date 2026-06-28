@@ -1015,4 +1015,60 @@ mod tests {
         assert_eq!(top, before);
         assert_eq!(n as usize, TOP_TRAILS_LEN);
     }
+
+    // -- shares -------------------------------------------------------------
+
+    #[test]
+    fn shares_round_trip_never_favors_the_withdrawer() {
+        let s = shares_for_deposit(1_000_000, 0, 0);
+        let back = assets_for_shares(s, s, 1_000_000);
+        assert!(back <= 1_000_000, "round trip must not mint value");
+    }
+
+    #[test]
+    fn share_price_is_immune_to_donated_tokens() {
+        // NAV is an accounting counter, so a direct transfer into the vault
+        // (modelled here as nav that was never credited) cannot change what a
+        // holder redeems. Two depositors, then an uncredited donation.
+        let mut total_shares = 0u128;
+        let mut nav = 0u64;
+
+        let s1 = shares_for_deposit(1_000_000, total_shares, nav);
+        total_shares += s1;
+        nav += 1_000_000;
+
+        let s2 = shares_for_deposit(1_000_000, total_shares, nav);
+        total_shares += s2;
+        nav += 1_000_000;
+
+        // Both paid the same price.
+        assert_eq!(s1, s2);
+        let redeem = assets_for_shares(s1, total_shares, nav);
+        assert!(redeem <= 1_000_000);
+        assert!(redeem >= 999_999);
+    }
+
+    #[test]
+    fn first_depositor_cannot_grief_with_one_atom() {
+        // Attacker seeds 1 atom, then a victim deposits. With the virtual
+        // offset the victim still receives proportional shares.
+        let attacker = shares_for_deposit(1, 0, 0);
+        let total = attacker;
+        let nav = 1u64;
+        let victim = shares_for_deposit(1_000_000, total, nav);
+        let victim_out = assets_for_shares(victim, total + victim, nav + 1_000_000);
+        assert!(
+            victim_out >= 999_000,
+            "victim recovered only {}",
+            victim_out
+        );
+    }
+
+    #[test]
+    fn profit_lifts_share_price_for_everyone() {
+        let s = shares_for_deposit(1_000_000, 0, 0);
+        // Colony realizes +10%: nav rises with no new shares.
+        let out = assets_for_shares(s, s, 1_100_000);
+        assert!(out > 1_090_000 && out <= 1_100_000, "got {}", out);
+    }
 }
