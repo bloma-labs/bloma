@@ -122,4 +122,8 @@ pub mod kolny_colony {
     pub fn deposit(ctx: Context<Deposit>, assets: u64) -> Result<()> {
         vault::deposit(ctx, assets)
     }
+
+    pub fn withdraw(ctx: Context<Withdraw>, shares: u128) -> Result<()> {
+        vault::withdraw(ctx, shares)
+    }
 }

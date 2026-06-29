@@ -172,3 +172,125 @@ pub fn deposit(ctx: Context<Deposit>, assets: u64) -> Result<()> {
 
     Ok(())
 }
+
+// ===========================================================================
+// withdraw
+// ===========================================================================
+
+/// A withdrawal is not blocked while the colony is paused. Pausing stops new
+/// capital from entering and stops capital from being moved out to foragers; it
+/// is not a mechanism for holding depositors in.
+#[derive(Accounts)]
+pub struct Withdraw<'info> {
+    pub depositor: Signer<'info>,
+
+    pub base_mint: Box<InterfaceAccount<'info, Mint>>,
+
+    #[account(
+        mut,
+        seeds = [SEED_BROOD],
+        bump = brood.bump,
+        has_one = base_mint @ ColonyError::BaseMintMismatch,
+    )]
+    pub brood: Box<Account<'info, BroodVaultState>>,
+
+    /// The seed derivation binds this position to the signer, which is the same
+    /// guarantee `has_one = owner` gives; the stored owner is compared as well
+    /// so a position can never be operated by anyone but its holder.
+    ///
+    /// The position is deliberately NOT closed when its balance reaches zero.
+    /// A `close` constraint is unconditional -- Anchor would close the account
+    /// at the end of every withdrawal, partial ones included, destroying a
+    /// still-positive share balance along with it. Closing only on a full exit
+    /// would mean a conditional close in the handler, which buys back a small
+    /// rent deposit in exchange for a re-creation charge on the next deposit
+    /// and one more failure mode. Leaving the account alive at zero shares is
+    /// cheaper for anyone who re-deposits and keeps an honest, readable record
+    /// of a zero balance.
+    #[account(
+        mut,
+        seeds = [SEED_POSITION, depositor.key().as_ref()],
+        bump = position.bump,
+        constraint = position.owner == depositor.key(),
+    )]
+    pub position: Box<Account<'info, DepositorPosition>>,
+
+    #[account(
+        mut,
+        seeds = [SEED_BROOD_VAULT],
+        bump = brood.vault_bump,
+        token::mint = base_mint,
+        token::authority = brood,
+    )]
+    pub vault_base: Box<InterfaceAccount<'info, TokenAccount>>,
+
+    #[account(
+        mut,
+        token::mint = base_mint,
+        token::authority = depositor,
+    )]
+    pub depositor_ata: Box<InterfaceAccount<'info, TokenAccount>>,
+
+    pub token_program: Interface<'info, TokenInterface>,
+}
+
+pub fn withdraw(ctx: Context<Withdraw>, shares: u128) -> Result<()> {
+    require!(shares > 0, ColonyError::ZeroAmount);
+    require!(
+        ctx.accounts.position.shares >= shares,
+        ColonyError::InsufficientShares
+    );
+
+    let nav = ctx.accounts.brood.nav();
+    let total_shares = ctx.accounts.brood.total_shares;
+
+    // Rounds down, so any residual atom stays with the depositors who remain.
+    let assets = math::assets_for_shares(shares, total_shares, nav);
+
+    // Idle liquidity is the honest limit. Capital already deployed to a forager
+    // cannot be recalled by this program, so a larger exit queues instead.
+    require!(
+        assets <= ctx.accounts.brood.idle_base,
+        ColonyError::InsufficientIdleLiquidity
+    );
+
+    let depositor_key = ctx.accounts.depositor.key();
+    let brood_bump = ctx.accounts.brood.bump;
+
+    // -- effects -----------------------------------------------------------
+    let brood = &mut ctx.accounts.brood;
+    brood.idle_base = brood.idle_base.saturating_sub(assets);
+    brood.total_shares = brood.total_shares.saturating_sub(shares);
+    let nav_after = brood.nav();
+    let total_shares_after = brood.total_shares;
+
+    let position = &mut ctx.accounts.position;
+    position.shares = position.shares.saturating_sub(shares);
+
+    // -- interaction -------------------------------------------------------
+    // The vault token account is owned by the brood state PDA, so the transfer
+    // out is signed with that PDA's seeds and its stored bump.
+    let brood_seeds: &[&[u8]] = &[SEED_BROOD, &[brood_bump]];
+    let signer_seeds: &[&[&[u8]]] = &[brood_seeds];
+    let brood_authority = ctx.accounts.brood.to_account_info();
+
+    utils::transfer_signed(
+        &ctx.accounts.token_program,
+        &ctx.accounts.vault_base,
+        &ctx.accounts.depositor_ata,
+        &ctx.accounts.base_mint,
+        &brood_authority,
+        signer_seeds,
+        assets,
+    )?;
+
+    emit!(Withdrawn {
+        depositor: depositor_key,
+        shares,
+        assets,
+        nav_after,
+        total_shares_after,
+    });
+
+    Ok(())
+}

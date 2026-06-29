@@ -12,6 +12,8 @@ pub enum ColonyError {
     Paused,
     #[msg("Wrong settlement phase for this instruction")]
     WrongPhase,
+    #[msg("Not enough idle liquidity; use request_redemption")]
+    InsufficientIdleLiquidity,
     #[msg("Bond is below the configured minimum")]
     BelowMinBond,
     #[msg("Deposit is below the configured minimum")]
@@ -32,6 +34,8 @@ pub enum ColonyError {
     RegistrationFrozenDuringSettlement,
     #[msg("Amount must be greater than zero")]
     ZeroAmount,
+    #[msg("Insufficient shares in this position")]
+    InsufficientShares,
     #[msg("Mint does not match the colony base mint")]
     BaseMintMismatch,
     #[msg("Token account owner or mint does not match the expected vault")]
