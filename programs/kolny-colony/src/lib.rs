@@ -126,4 +126,8 @@ pub mod kolny_colony {
     pub fn withdraw(ctx: Context<Withdraw>, shares: u128) -> Result<()> {
         vault::withdraw(ctx, shares)
     }
+
+    pub fn request_redemption(ctx: Context<RequestRedemption>, shares: u128) -> Result<()> {
+        vault::request_redemption(ctx, shares)
+    }
 }

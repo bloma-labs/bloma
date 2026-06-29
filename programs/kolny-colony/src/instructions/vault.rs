@@ -294,3 +294,89 @@ pub fn withdraw(ctx: Context<Withdraw>, shares: u128) -> Result<()> {
 
     Ok(())
 }
+
+// ===========================================================================
+// request_redemption
+// ===========================================================================
+
+/// The request PDA takes its id from `brood.next_redemption_id` rather than
+/// from an instruction argument, so a depositor cannot pick the id of a request
+/// that already exists or skip ahead of the queue counter.
+#[derive(Accounts)]
+pub struct RequestRedemption<'info> {
+    #[account(mut)]
+    pub depositor: Signer<'info>,
+
+    #[account(seeds = [SEED_COLONY], bump = config.bump)]
+    pub config: Box<Account<'info, ColonyConfig>>,
+
+    #[account(mut, seeds = [SEED_BROOD], bump = brood.bump)]
+    pub brood: Box<Account<'info, BroodVaultState>>,
+
+    #[account(
+        mut,
+        seeds = [SEED_POSITION, depositor.key().as_ref()],
+        bump = position.bump,
+        constraint = position.owner == depositor.key(),
+    )]
+    pub position: Box<Account<'info, DepositorPosition>>,
+
+    #[account(
+        init,
+        payer = depositor,
+        space = 8 + RedemptionRequest::LEN,
+        seeds = [
+            SEED_REDEEM,
+            depositor.key().as_ref(),
+            &brood.next_redemption_id.to_le_bytes(),
+        ],
+        bump,
+    )]
+    pub request: Box<Account<'info, RedemptionRequest>>,
+
+    pub system_program: Program<'info, System>,
+}
+
+pub fn request_redemption(ctx: Context<RequestRedemption>, shares: u128) -> Result<()> {
+    require!(shares > 0, ColonyError::ZeroAmount);
+    require!(
+        ctx.accounts.position.shares >= shares,
+        ColonyError::InsufficientShares
+    );
+
+    let depositor_key = ctx.accounts.depositor.key();
+    let requested_epoch = ctx.accounts.config.epoch;
+    let request_id = ctx.accounts.brood.next_redemption_id;
+    let request_bump = ctx.bumps.request;
+
+    // The shares leave the position immediately so the same shares cannot be
+    // queued twice, or queued and then withdrawn through the idle path. They
+    // are NOT burned here: the depositor keeps the exposure until the request
+    // is actually paid, so queuing does not move anyone's share price.
+    let position = &mut ctx.accounts.position;
+    position.shares = position.shares.saturating_sub(shares);
+
+    let brood = &mut ctx.accounts.brood;
+    brood.pending_redemption_shares = brood
+        .pending_redemption_shares
+        .checked_add(shares)
+        .ok_or(ColonyError::Overflow)?;
+    brood.next_redemption_id = request_id.checked_add(1).ok_or(ColonyError::Overflow)?;
+
+    let request = &mut ctx.accounts.request;
+    request.owner = depositor_key;
+    request.shares = shares;
+    request.request_id = request_id;
+    request.requested_epoch = requested_epoch;
+    request.assets_paid = 0;
+    request.bump = request_bump;
+
+    emit!(RedemptionRequested {
+        depositor: depositor_key,
+        request_id,
+        shares,
+        requested_epoch,
+    });
+
+    Ok(())
+}
