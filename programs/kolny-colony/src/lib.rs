@@ -130,4 +130,8 @@ pub mod kolny_colony {
     pub fn request_redemption(ctx: Context<RequestRedemption>, shares: u128) -> Result<()> {
         vault::request_redemption(ctx, shares)
     }
+
+    pub fn fulfill_redemption(ctx: Context<FulfillRedemption>, request_id: u64) -> Result<()> {
+        vault::fulfill_redemption(ctx, request_id)
+    }
 }

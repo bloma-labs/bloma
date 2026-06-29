@@ -32,6 +32,10 @@ pub enum ColonyError {
     PromotionCriteriaNotMet,
     #[msg("Registration and retirement are frozen during settlement")]
     RegistrationFrozenDuringSettlement,
+    #[msg("Redemption request is not ready to be fulfilled")]
+    RedemptionNotReady,
+    #[msg("Redemption request has already been fully paid")]
+    RedemptionAlreadyFulfilled,
     #[msg("Amount must be greater than zero")]
     ZeroAmount,
     #[msg("Insufficient shares in this position")]

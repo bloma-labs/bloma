@@ -380,3 +380,139 @@ pub fn request_redemption(ctx: Context<RequestRedemption>, shares: u128) -> Resu
 
     Ok(())
 }
+
+// ===========================================================================
+// fulfill_redemption
+// ===========================================================================
+
+/// Permissionless crank. Anyone may pay a queued redemption; the signer only
+/// pays the transaction fee and has no influence over where the assets go,
+/// which is fixed by the request's stored owner.
+#[derive(Accounts)]
+#[instruction(request_id: u64)]
+pub struct FulfillRedemption<'info> {
+    pub cranker: Signer<'info>,
+
+    pub base_mint: Box<InterfaceAccount<'info, Mint>>,
+
+    /// CHECK: never signs and is never written. It is pinned by the request's
+    /// seed derivation and by `has_one = owner`, so it can only be the account
+    /// that filed this request; it serves as the payout destination authority.
+    pub owner: UncheckedAccount<'info>,
+
+    #[account(
+        mut,
+        seeds = [SEED_BROOD],
+        bump = brood.bump,
+        has_one = base_mint @ ColonyError::BaseMintMismatch,
+    )]
+    pub brood: Box<Account<'info, BroodVaultState>>,
+
+    #[account(
+        mut,
+        seeds = [SEED_REDEEM, owner.key().as_ref(), &request_id.to_le_bytes()],
+        bump = request.bump,
+        has_one = owner,
+    )]
+    pub request: Box<Account<'info, RedemptionRequest>>,
+
+    #[account(
+        mut,
+        seeds = [SEED_BROOD_VAULT],
+        bump = brood.vault_bump,
+        token::mint = base_mint,
+        token::authority = brood,
+    )]
+    pub vault_base: Box<InterfaceAccount<'info, TokenAccount>>,
+
+    #[account(
+        mut,
+        token::mint = base_mint,
+        token::authority = owner,
+    )]
+    pub owner_ata: Box<InterfaceAccount<'info, TokenAccount>>,
+
+    pub token_program: Interface<'info, TokenInterface>,
+}
+
+pub fn fulfill_redemption(ctx: Context<FulfillRedemption>, request_id: u64) -> Result<()> {
+    let requested_shares = ctx.accounts.request.shares;
+    require!(
+        requested_shares > 0,
+        ColonyError::RedemptionAlreadyFulfilled
+    );
+
+    let nav = ctx.accounts.brood.nav();
+    let total_shares = ctx.accounts.brood.total_shares;
+
+    // Priced at the current share price, not at the price when the request was
+    // filed. A queued depositor stays exposed to the colony's realized result
+    // for as long as the capital is still working, which is what keeps the
+    // queue from becoming a free option against the depositors who stayed.
+    let assets = math::assets_for_shares(requested_shares, total_shares, nav);
+
+    // Pay what idle liquidity actually covers, and no more.
+    let payable = assets.min(ctx.accounts.brood.idle_base);
+    require!(payable > 0, ColonyError::RedemptionNotReady);
+
+    // `payable > 0` implies `assets > 0`, since `payable <= assets`. The
+    // checked division keeps that a guarantee rather than an assumption.
+    // Multiply in u128 first, divide second, so no precision is thrown away.
+    let burned: u128 = if payable >= assets {
+        requested_shares
+    } else {
+        requested_shares
+            .checked_mul(payable as u128)
+            .ok_or(ColonyError::Overflow)?
+            .checked_div(assets as u128)
+            .ok_or(ColonyError::Overflow)?
+    };
+
+    // A partial payment that would burn no shares at all would release assets
+    // for free and never retire the request. Treat it as not yet serviceable.
+    require!(burned > 0, ColonyError::RedemptionNotReady);
+
+    let owner_key = ctx.accounts.owner.key();
+    let brood_bump = ctx.accounts.brood.bump;
+
+    // -- effects -----------------------------------------------------------
+    let brood = &mut ctx.accounts.brood;
+    brood.idle_base = brood.idle_base.saturating_sub(payable);
+    brood.total_shares = brood.total_shares.saturating_sub(burned);
+    brood.pending_redemption_shares = brood.pending_redemption_shares.saturating_sub(burned);
+
+    let request = &mut ctx.accounts.request;
+    request.shares = request.shares.saturating_sub(burned);
+    request.assets_paid = request
+        .assets_paid
+        .checked_add(payable)
+        .ok_or(ColonyError::Overflow)?;
+    let fully_settled = request.shares == 0;
+
+    // -- interaction -------------------------------------------------------
+    let brood_seeds: &[&[u8]] = &[SEED_BROOD, &[brood_bump]];
+    let signer_seeds: &[&[&[u8]]] = &[brood_seeds];
+    let brood_authority = ctx.accounts.brood.to_account_info();
+
+    utils::transfer_signed(
+        &ctx.accounts.token_program,
+        &ctx.accounts.vault_base,
+        &ctx.accounts.owner_ata,
+        &ctx.accounts.base_mint,
+        &brood_authority,
+        signer_seeds,
+        payable,
+    )?;
+
+    emit!(RedemptionFulfilled {
+        depositor: owner_key,
+        request_id,
+        shares_burned: burned,
+        // What this call paid, not the running total; the running total lives
+        // on `request.assets_paid`.
+        assets_paid: payable,
+        fully_settled,
+    });
+
+    Ok(())
+}
