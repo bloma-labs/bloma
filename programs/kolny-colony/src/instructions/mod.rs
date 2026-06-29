@@ -8,6 +8,8 @@
 
 pub mod admin;
 pub mod forager;
+pub mod vault;
 
 pub use admin::*;
 pub use forager::*;
+pub use vault::*;

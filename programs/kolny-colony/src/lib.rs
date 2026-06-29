@@ -116,4 +116,10 @@ pub mod kolny_colony {
     pub fn heartbeat(ctx: Context<Heartbeat>, forager_id: u64) -> Result<()> {
         forager::heartbeat(ctx, forager_id)
     }
+
+    // -- depositor flows -----------------------------------------------------
+
+    pub fn deposit(ctx: Context<Deposit>, assets: u64) -> Result<()> {
+        vault::deposit(ctx, assets)
+    }
 }

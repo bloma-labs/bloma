@@ -14,6 +14,8 @@ pub enum ColonyError {
     WrongPhase,
     #[msg("Bond is below the configured minimum")]
     BelowMinBond,
+    #[msg("Deposit is below the configured minimum")]
+    BelowMinimumDeposit,
     #[msg("Forager is not a scout")]
     ForagerNotScout,
     #[msg("Forager is not active")]
