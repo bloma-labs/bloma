@@ -393,6 +393,74 @@ pub fn assets_for_shares(shares: u128, total_shares: u128, nav: u64) -> u64 {
     a.min(u64::MAX as u128) as u64
 }
 
+// ---------------------------------------------------------------------------
+// Loss coverage and slashing
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct LossOutcome {
+    pub from_bond: u64,
+    pub from_cache: u64,
+    pub to_vault_loss: u64,
+}
+
+/// Absorb a realized loss in waterfall order.
+///
+/// The forager's own sub-account has already taken the hit by the time this is
+/// called (its balance is what produced the loss), so the remaining order is
+/// bond, then Risk Cache, then depositor NAV. Step three is the honest limit:
+/// the cushion is finite, and whatever the bond and cache cannot cover reduces
+/// depositor share value.
+pub fn cover_loss(loss: u64, bond: u64, cache_balance: u64) -> LossOutcome {
+    let from_bond = loss.min(bond);
+    let rem = loss - from_bond;
+    let from_cache = rem.min(cache_balance);
+    let to_vault_loss = rem - from_cache;
+    LossOutcome {
+        from_bond,
+        from_cache,
+        to_vault_loss,
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SlashOutcome {
+    pub slashed: u64,
+    pub burn: u64,
+    pub to_cache: u64,
+}
+
+/// Punitive slash: seize `slash_bps` of the bond, then split it between the
+/// incinerator and the Risk Cache.
+pub fn slash_split(bond: u64, slash_bps: u16, burn_share_bps: u16) -> SlashOutcome {
+    let slashed = ((bond as u128) * (slash_bps as u128) / BPS_DENOM) as u64;
+    let burn = ((slashed as u128) * (burn_share_bps as u128) / BPS_DENOM) as u64;
+    let to_cache = slashed - burn;
+    SlashOutcome {
+        slashed,
+        burn,
+        to_cache,
+    }
+}
+
+/// Fraction of bond seized by a loss-threshold slash, scaled by how far past
+/// the slash threshold the drawdown went, up to the whole bond. Integrity
+/// failures (rule violation, non-response) seize the whole bond and do not use
+/// this ramp.
+pub fn loss_slash_bps(drawdown_bps: u16, dd_slash_bps: u16) -> u16 {
+    if drawdown_bps <= dd_slash_bps || dd_slash_bps == 0 {
+        return 0;
+    }
+    let excess = (drawdown_bps - dd_slash_bps) as u128;
+    let ramp = excess * BPS_DENOM / (dd_slash_bps as u128);
+    ramp.min(BPS_DENOM) as u16
+}
+
+/// Share of realized profit routed to the Risk Cache while it is below target.
+pub fn cache_accrual(profit: u64, cache_accrual_bps: u16) -> u64 {
+    ((profit as u128) * (cache_accrual_bps as u128) / BPS_DENOM) as u64
+}
+
 // ===========================================================================
 // Tests
 // ===========================================================================
