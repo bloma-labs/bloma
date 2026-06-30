@@ -134,4 +134,8 @@ pub mod kolny_colony {
     pub fn fulfill_redemption(ctx: Context<FulfillRedemption>, request_id: u64) -> Result<()> {
         vault::fulfill_redemption(ctx, request_id)
     }
+
+    pub fn fund_cache(ctx: Context<FundCache>, amount: u64) -> Result<()> {
+        vault::fund_cache(ctx, amount)
+    }
 }

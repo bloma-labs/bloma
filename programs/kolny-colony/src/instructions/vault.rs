@@ -516,3 +516,71 @@ pub fn fulfill_redemption(ctx: Context<FulfillRedemption>, request_id: u64) -> R
 
     Ok(())
 }
+
+// ===========================================================================
+// fund_cache
+// ===========================================================================
+
+/// Anyone may add base asset to the Risk Cache. There is no path back out to
+/// the funder: the cache exists to absorb realized losses ahead of depositor
+/// NAV, so a contribution to it is a contribution, not a position.
+#[derive(Accounts)]
+pub struct FundCache<'info> {
+    pub funder: Signer<'info>,
+
+    pub base_mint: Box<InterfaceAccount<'info, Mint>>,
+
+    #[account(mut, seeds = [SEED_CACHE], bump = cache.bump)]
+    pub cache: Box<Account<'info, RiskCacheState>>,
+
+    #[account(
+        mut,
+        seeds = [SEED_CACHE_VAULT],
+        bump = cache.vault_bump,
+        token::mint = base_mint,
+    )]
+    pub cache_vault: Box<InterfaceAccount<'info, TokenAccount>>,
+
+    #[account(
+        mut,
+        token::mint = base_mint,
+        token::authority = funder,
+    )]
+    pub funder_ata: Box<InterfaceAccount<'info, TokenAccount>>,
+
+    pub token_program: Interface<'info, TokenInterface>,
+}
+
+pub fn fund_cache(ctx: Context<FundCache>, amount: u64) -> Result<()> {
+    require!(amount > 0, ColonyError::ZeroAmount);
+
+    let funder_key = ctx.accounts.funder.key();
+
+    // -- effects -----------------------------------------------------------
+    // Only `balance` moves. `total_accrued` counts what settlement routed in
+    // from realized profit, and a donation is not that.
+    let cache = &mut ctx.accounts.cache;
+    cache.balance = cache
+        .balance
+        .checked_add(amount)
+        .ok_or(ColonyError::Overflow)?;
+    let cache_balance = cache.balance;
+
+    // -- interaction -------------------------------------------------------
+    utils::transfer_from_user(
+        &ctx.accounts.token_program,
+        &ctx.accounts.funder_ata,
+        &ctx.accounts.cache_vault,
+        &ctx.accounts.base_mint,
+        &ctx.accounts.funder,
+        amount,
+    )?;
+
+    emit!(CacheFunded {
+        funder: funder_key,
+        amount,
+        cache_balance,
+    });
+
+    Ok(())
+}
