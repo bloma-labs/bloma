@@ -1139,4 +1139,53 @@ mod tests {
         let out = assets_for_shares(s, s, 1_100_000);
         assert!(out > 1_090_000 && out <= 1_100_000, "got {}", out);
     }
+
+    // -- loss waterfall and slashing ----------------------------------------
+
+    #[test]
+    fn loss_waterfall_order_is_bond_then_cache_then_nav() {
+        // loss 100, bond 50, cache 30 -> bond 50, cache 30, depositors 20
+        let o = cover_loss(100, 50, 30);
+        assert_eq!(
+            o,
+            LossOutcome {
+                from_bond: 50,
+                from_cache: 30,
+                to_vault_loss: 20
+            }
+        );
+
+        // The bond alone covers it.
+        let o2 = cover_loss(100, 500, 30);
+        assert_eq!(
+            o2,
+            LossOutcome {
+                from_bond: 100,
+                from_cache: 0,
+                to_vault_loss: 0
+            }
+        );
+
+        // Bond plus cache exactly cover it: depositors are untouched.
+        let o3 = cover_loss(100, 40, 60);
+        assert_eq!(o3.to_vault_loss, 0);
+
+        // The cushion is finite: with nothing posted, depositors take it all.
+        let o4 = cover_loss(100, 0, 0);
+        assert_eq!(o4.to_vault_loss, 100);
+    }
+
+    #[test]
+    fn loss_waterfall_conserves_value() {
+        for loss in [0u64, 1, 99, 1_000, u64::MAX / 4] {
+            for bond in [0u64, 7, 500] {
+                for cache in [0u64, 13, 900] {
+                    let o = cover_loss(loss, bond, cache);
+                    assert_eq!(o.from_bond + o.from_cache + o.to_vault_loss, loss);
+                    assert!(o.from_bond <= bond);
+                    assert!(o.from_cache <= cache);
+                }
+            }
+        }
+    }
 }
