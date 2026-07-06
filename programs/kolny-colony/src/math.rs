@@ -1188,4 +1188,44 @@ mod tests {
             }
         }
     }
+
+    #[test]
+    fn slash_split_sums_and_halves() {
+        let o = slash_split(1_000, 2_000, 5_000);
+        assert_eq!(
+            o,
+            SlashOutcome {
+                slashed: 200,
+                burn: 100,
+                to_cache: 100
+            }
+        );
+        assert_eq!(o.burn + o.to_cache, o.slashed);
+    }
+
+    #[test]
+    fn integrity_slash_takes_the_whole_bond() {
+        let o = slash_split(1_000, 10_000, 5_000);
+        assert_eq!(o.slashed, 1_000);
+        assert_eq!(o.burn + o.to_cache, 1_000);
+    }
+
+    #[test]
+    fn loss_slash_ramps_past_the_threshold() {
+        // At or under the threshold nothing is seized.
+        assert_eq!(loss_slash_bps(2_000, 3_000), 0);
+        assert_eq!(loss_slash_bps(3_000, 3_000), 0);
+        // Halfway past the threshold seizes half the bond.
+        assert_eq!(loss_slash_bps(4_500, 3_000), 5_000);
+        // Twice the threshold seizes all of it, and it stays clamped.
+        assert_eq!(loss_slash_bps(6_000, 3_000), 10_000);
+        assert_eq!(loss_slash_bps(9_000, 3_000), 10_000);
+    }
+
+    #[test]
+    fn cache_accrual_takes_the_configured_cut() {
+        assert_eq!(cache_accrual(1_000_000, 1_000), 100_000);
+        assert_eq!(cache_accrual(0, 1_000), 0);
+        assert_eq!(cache_accrual(1_000_000, 0), 0);
+    }
 }
