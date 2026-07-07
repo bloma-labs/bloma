@@ -369,6 +369,27 @@ pub fn top_insert(top: &mut [u64; TOP_TRAILS_LEN], count: u8, value: u64) -> u8 
     ((occupied + 1).min(len)) as u8
 }
 
+/// Whether a rebalance should be skipped because the target barely moved.
+/// The no-trade band stops small pheromone wiggles from generating trades.
+pub fn within_no_trade_band(current: u64, target: u64, pool: u64, band_bps: u16) -> bool {
+    if band_bps == 0 || pool == 0 {
+        return false;
+    }
+    let delta = current.abs_diff(target) as u128;
+    let band = (pool as u128) * (band_bps as u128) / BPS_DENOM;
+    delta < band
+}
+
+/// Clamp a rebalance move to the remaining per-epoch turnover budget.
+pub fn apply_turnover_cap(desired: u64, moved_so_far: u64, pool: u64, turnover_cap_bps: u16) -> u64 {
+    let budget = (pool as u128) * (turnover_cap_bps as u128) / BPS_DENOM;
+    let used = moved_so_far as u128;
+    if used >= budget {
+        return 0;
+    }
+    (desired as u128).min(budget - used) as u64
+}
+
 // ---------------------------------------------------------------------------
 // Shares (ERC4626 style with a virtual offset)
 // ---------------------------------------------------------------------------
@@ -1082,6 +1103,22 @@ mod tests {
         n = top_insert(&mut top, n, 1);
         assert_eq!(top, before);
         assert_eq!(n as usize, TOP_TRAILS_LEN);
+    }
+
+    #[test]
+    fn no_trade_band_suppresses_small_moves() {
+        // 2% band on a 1_000_000 pool = 20_000.
+        assert!(within_no_trade_band(100_000, 110_000, 1_000_000, 200));
+        assert!(!within_no_trade_band(100_000, 130_000, 1_000_000, 200));
+        assert!(!within_no_trade_band(100_000, 130_000, 1_000_000, 0));
+    }
+
+    #[test]
+    fn turnover_cap_bounds_epoch_movement() {
+        // 25% of 1_000_000 = 250_000 budget.
+        assert_eq!(apply_turnover_cap(100_000, 0, 1_000_000, 2_500), 100_000);
+        assert_eq!(apply_turnover_cap(100_000, 200_000, 1_000_000, 2_500), 50_000);
+        assert_eq!(apply_turnover_cap(100_000, 250_000, 1_000_000, 2_500), 0);
     }
 
     // -- shares -------------------------------------------------------------
