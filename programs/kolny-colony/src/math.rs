@@ -341,6 +341,17 @@ pub fn allocation_target(
     (num / (BPS_DENOM * level.rest_sum)) as u64
 }
 
+/// Allocation ceiling implied by posted bond: `bond / bond_ratio`.
+///
+/// Skin in the game gates capital, so a forager whose trail would earn more
+/// than its bond supports is capped here instead of having its bond raised.
+pub fn bond_capacity(bond: u64, bond_ratio_bps: u16) -> u64 {
+    if bond_ratio_bps == 0 {
+        return u64::MAX;
+    }
+    ((bond as u128) * BPS_DENOM / (bond_ratio_bps as u128)).min(u64::MAX as u128) as u64
+}
+
 /// Insert a value into a descending-ordered fixed-size top list.
 /// Returns the number of occupied slots after insertion.
 pub fn top_insert(top: &mut [u64; TOP_TRAILS_LEN], count: u8, value: u64) -> u8 {
@@ -1103,6 +1114,13 @@ mod tests {
         n = top_insert(&mut top, n, 1);
         assert_eq!(top, before);
         assert_eq!(n as usize, TOP_TRAILS_LEN);
+    }
+
+    #[test]
+    fn bond_capacity_gates_allocation() {
+        // bond 30_000 at a 10% ratio supports 300_000 of allocation.
+        assert_eq!(bond_capacity(30_000, 1_000), 300_000);
+        assert_eq!(bond_capacity(0, 1_000), 0);
     }
 
     #[test]
