@@ -132,8 +132,64 @@ pub struct RedemptionFulfilled {
 }
 
 #[event]
+pub struct SettlementBegan {
+    pub settling_epoch: u64,
+    pub active_forager_count: u32,
+    pub started_at: i64,
+}
+
+#[event]
+pub struct ForagerSettled {
+    pub forager: Pubkey,
+    pub settling_epoch: u64,
+    pub realized_pnl_epoch: i64,
+    pub return_bps: i64,
+    pub perf_bps: i64,
+    pub deposit_fp6: i64,
+    pub pheromone: u64,
+    pub principal_after: u64,
+    pub drawdown_bps: u16,
+}
+
+#[event]
+pub struct LossCovered {
+    pub forager: Pubkey,
+    pub loss: u64,
+    pub from_bond: u64,
+    pub from_cache: u64,
+    pub to_depositors: u64,
+}
+
+#[event]
+pub struct SettlementFinalized {
+    pub epoch: u64,
+    pub pheromone_sum: u128,
+    pub alloc_divisor: u128,
+    pub allocatable_pool: u64,
+    pub scout_pool: u64,
+    pub nav: u64,
+}
+
+#[event]
+pub struct ForagerRebalanced {
+    pub forager: Pubkey,
+    pub epoch: u64,
+    pub target: u64,
+    pub principal_before: u64,
+    pub principal_after: u64,
+    pub weight_bps: u16,
+}
+
+#[event]
 pub struct CacheFunded {
     pub funder: Pubkey,
+    pub amount: u64,
+    pub cache_balance: u64,
+}
+
+#[event]
+pub struct CacheAccrued {
+    pub epoch: u64,
     pub amount: u64,
     pub cache_balance: u64,
 }
