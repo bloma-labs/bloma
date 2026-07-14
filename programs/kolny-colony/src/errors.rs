@@ -12,6 +12,10 @@ pub enum ColonyError {
     Paused,
     #[msg("Wrong settlement phase for this instruction")]
     WrongPhase,
+    #[msg("Epoch has not ended yet")]
+    EpochNotOver,
+    #[msg("Colony is not settling")]
+    NotSettling,
     #[msg("Not enough idle liquidity; use request_redemption")]
     InsufficientIdleLiquidity,
     #[msg("Bond is below the configured minimum")]
@@ -46,4 +50,6 @@ pub enum ColonyError {
     VaultMismatch,
     #[msg("Forager still holds principal; settle and unwind before retiring")]
     ForagerStillDeployed,
+    #[msg("Colony must have at least one active forager")]
+    NoActiveForagers,
 }

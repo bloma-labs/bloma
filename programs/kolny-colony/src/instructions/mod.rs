@@ -8,8 +8,10 @@
 
 pub mod admin;
 pub mod forager;
+pub mod settlement;
 pub mod vault;
 
 pub use admin::*;
 pub use forager::*;
+pub use settlement::*;
 pub use vault::*;

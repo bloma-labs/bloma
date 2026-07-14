@@ -138,4 +138,10 @@ pub mod kolny_colony {
     pub fn fund_cache(ctx: Context<FundCache>, amount: u64) -> Result<()> {
         vault::fund_cache(ctx, amount)
     }
+
+    // -- epoch settlement crank ---------------------------------------------
+
+    pub fn begin_settlement(ctx: Context<BeginSettlement>) -> Result<()> {
+        settlement::begin_settlement(ctx)
+    }
 }
