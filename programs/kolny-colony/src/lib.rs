@@ -144,4 +144,8 @@ pub mod kolny_colony {
     pub fn begin_settlement(ctx: Context<BeginSettlement>) -> Result<()> {
         settlement::begin_settlement(ctx)
     }
+
+    pub fn settle_forager(ctx: Context<SettleForager>, forager_id: u64) -> Result<()> {
+        settlement::settle_forager(ctx, forager_id)
+    }
 }

@@ -14,6 +14,8 @@ pub enum ColonyError {
     WrongPhase,
     #[msg("Epoch has not ended yet")]
     EpochNotOver,
+    #[msg("Forager already settled this epoch")]
+    AlreadySettledThisEpoch,
     #[msg("Colony is not settling")]
     NotSettling,
     #[msg("Not enough idle liquidity; use request_redemption")]
@@ -36,6 +38,8 @@ pub enum ColonyError {
     PromotionCriteriaNotMet,
     #[msg("Registration and retirement are frozen during settlement")]
     RegistrationFrozenDuringSettlement,
+    #[msg("Slash amount exceeds the posted bond")]
+    SlashTooLarge,
     #[msg("Redemption request is not ready to be fulfilled")]
     RedemptionNotReady,
     #[msg("Redemption request has already been fully paid")]
