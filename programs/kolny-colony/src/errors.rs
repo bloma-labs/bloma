@@ -16,6 +16,8 @@ pub enum ColonyError {
     EpochNotOver,
     #[msg("Forager already settled this epoch")]
     AlreadySettledThisEpoch,
+    #[msg("Not every active forager has settled yet")]
+    SettlementIncomplete,
     #[msg("Colony is not settling")]
     NotSettling,
     #[msg("Not enough idle liquidity; use request_redemption")]

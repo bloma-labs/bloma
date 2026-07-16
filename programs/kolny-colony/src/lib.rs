@@ -148,4 +148,8 @@ pub mod kolny_colony {
     pub fn settle_forager(ctx: Context<SettleForager>, forager_id: u64) -> Result<()> {
         settlement::settle_forager(ctx, forager_id)
     }
+
+    pub fn finalize_settlement(ctx: Context<FinalizeSettlement>) -> Result<()> {
+        settlement::finalize_settlement(ctx)
+    }
 }

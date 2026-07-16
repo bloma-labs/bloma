@@ -105,6 +105,22 @@ pub struct SettleForager<'info> {
     pub cranker: Signer<'info>,
 }
 
+#[derive(Accounts)]
+pub struct FinalizeSettlement<'info> {
+    #[account(mut, seeds = [SEED_COLONY], bump = config.bump)]
+    pub config: Box<Account<'info, ColonyConfig>>,
+
+    /// Read only: the next epoch's pools are sized from accounting NAV.
+    #[account(seeds = [SEED_BROOD], bump = brood.bump)]
+    pub brood: Box<Account<'info, BroodVaultState>>,
+
+    #[account(mut, seeds = [SEED_TRAIL_BOARD], bump = trail_board.bump)]
+    pub trail_board: Box<Account<'info, TrailBoard>>,
+
+    /// Permissionless crank.
+    pub cranker: Signer<'info>,
+}
+
 // ===========================================================================
 // Phase 1: begin
 // ===========================================================================
@@ -540,6 +556,90 @@ pub fn settle_forager(ctx: Context<SettleForager>, forager_id: u64) -> Result<()
         pheromone,
         principal_after,
         drawdown_bps,
+    });
+
+    Ok(())
+}
+
+// ===========================================================================
+// Phase 3: finalize
+// ===========================================================================
+
+/// Confirm the epoch's normalization and open the next one.
+///
+/// Refuses to run until every settleable forager has been settled. A partial
+/// normalization would hand the foragers that happened to be cranked first a
+/// denominator that excludes everyone else, which is exactly the kind of
+/// ordering advantage the crank is designed not to have.
+pub fn finalize_settlement(ctx: Context<FinalizeSettlement>) -> Result<()> {
+    let now = Clock::get()?.unix_timestamp;
+
+    require!(
+        ctx.accounts.config.epoch_phase == PHASE_SETTLING,
+        ColonyError::NotSettling
+    );
+    require!(
+        ctx.accounts.config.settled_count == ctx.accounts.config.settleable_forager_count,
+        ColonyError::SettlementIncomplete
+    );
+
+    let pheromone_sum = ctx.accounts.config.pheromone_sum_acc;
+    let active_forager_count = ctx.accounts.config.active_count_acc;
+    let scout_budget_bps = ctx.accounts.config.scout_budget_bps;
+
+    let eff_max_weight_bps = math::effective_max_weight_bps(
+        ctx.accounts.config.w_max_bps,
+        active_forager_count,
+        CAP_RELAX_MARGIN_BPS,
+    );
+
+    // Solve the water-filling level exactly. At most `floor(1 / w_max)` trails
+    // can sit at the cap, so the recorded top values are all the solver needs;
+    // the single divisor it returns reproduces the iterative cap-and-
+    // redistribute procedure and lets every target be computed in O(1).
+    let occupied = (ctx.accounts.trail_board.count as usize).min(TOP_TRAILS_LEN);
+    let level = math::solve_cap_level(
+        pheromone_sum,
+        &ctx.accounts.trail_board.top[..occupied],
+        active_forager_count,
+        eff_max_weight_bps,
+    );
+
+    // Pools are sized from accounting NAV, never from a live token balance.
+    let nav = ctx.accounts.brood.nav();
+    let scout_pool = ((nav as u128) * (scout_budget_bps as u128) / math::BPS_DENOM) as u64;
+    let allocatable_pool = nav.saturating_sub(scout_pool);
+
+    let epoch = {
+        let config = &mut ctx.accounts.config;
+        config.pheromone_sum = pheromone_sum;
+        config.active_forager_count = active_forager_count;
+        config.alloc_rest_sum = level.rest_sum;
+        config.alloc_remaining_bps = level.remaining_bps;
+        config.scout_pool = scout_pool;
+        config.allocatable_pool = allocatable_pool;
+        config.epoch = config.epoch.checked_add(1).ok_or(ColonyError::Overflow)?;
+        config.epoch_end_ts = now
+            .checked_add(config.epoch_duration_secs)
+            .ok_or(ColonyError::Overflow)?;
+        config.epoch_phase = PHASE_OPEN;
+        config.epoch_turnover_used = 0;
+        config.epoch
+    };
+
+    ctx.accounts.trail_board.reset();
+
+    emit!(SettlementFinalized {
+        // The epoch the colony has just entered. The divisor and the pools
+        // reported alongside it are the parameters that govern that epoch.
+        epoch,
+        pheromone_sum,
+        // Reported in divisor form for indexers. Nothing on-chain forms this
+        // quotient; the level is stored as (rest_sum, remaining_bps).
+        alloc_divisor: math::alloc_divisor_of(&level),
+        allocatable_pool,
+        scout_pool,
+        nav,
     });
 
     Ok(())
