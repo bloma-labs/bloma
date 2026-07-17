@@ -152,4 +152,8 @@ pub mod kolny_colony {
     pub fn finalize_settlement(ctx: Context<FinalizeSettlement>) -> Result<()> {
         settlement::finalize_settlement(ctx)
     }
+
+    pub fn rebalance_forager(ctx: Context<RebalanceForager>, forager_id: u64) -> Result<()> {
+        settlement::rebalance_forager(ctx, forager_id)
+    }
 }

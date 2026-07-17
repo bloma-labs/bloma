@@ -121,6 +121,36 @@ pub struct FinalizeSettlement<'info> {
     pub cranker: Signer<'info>,
 }
 
+#[derive(Accounts)]
+#[instruction(forager_id: u64)]
+pub struct RebalanceForager<'info> {
+    #[account(mut, seeds = [SEED_COLONY], bump = config.bump, has_one = base_mint)]
+    pub config: Box<Account<'info, ColonyConfig>>,
+
+    #[account(
+        mut,
+        seeds = [SEED_FORAGER, forager.operator.as_ref(), &forager_id.to_le_bytes()],
+        bump = forager.bump,
+        has_one = forager_vault,
+    )]
+    pub forager: Box<Account<'info, ForagerState>>,
+
+    #[account(mut)]
+    pub forager_vault: Box<InterfaceAccount<'info, TokenAccount>>,
+
+    #[account(mut, seeds = [SEED_BROOD], bump = brood.bump, has_one = vault_base)]
+    pub brood: Box<Account<'info, BroodVaultState>>,
+
+    #[account(mut)]
+    pub vault_base: Box<InterfaceAccount<'info, TokenAccount>>,
+
+    pub base_mint: Box<InterfaceAccount<'info, Mint>>,
+    pub token_program: Interface<'info, TokenInterface>,
+
+    /// Permissionless crank.
+    pub cranker: Signer<'info>,
+}
+
 // ===========================================================================
 // Phase 1: begin
 // ===========================================================================
@@ -640,6 +670,217 @@ pub fn finalize_settlement(ctx: Context<FinalizeSettlement>) -> Result<()> {
         allocatable_pool,
         scout_pool,
         nav,
+    });
+
+    Ok(())
+}
+
+// ===========================================================================
+// Open phase: rebalancing
+// ===========================================================================
+
+/// Move a forager's capital toward the target its trail earns.
+///
+/// Two controls keep churn down: a no-trade band that ignores small target
+/// moves, and a per-epoch turnover cap on total capital moved. A third limit is
+/// economic rather than mechanical -- the posted bond caps what a trail can be
+/// allocated, and the bond is never raised automatically to fit the trail.
+pub fn rebalance_forager(ctx: Context<RebalanceForager>, forager_id: u64) -> Result<()> {
+    require!(
+        ctx.accounts.config.epoch_phase == PHASE_OPEN,
+        ColonyError::WrongPhase
+    );
+    require!(!ctx.accounts.config.paused, ColonyError::Paused);
+    require!(
+        ctx.accounts.forager.status != STATUS_RETIRED,
+        ColonyError::ForagerInactive
+    );
+
+    let epoch = ctx.accounts.config.epoch;
+    let scout_ticket = ctx.accounts.config.scout_ticket_base_units;
+    let level = math::CapLevel {
+        capped_count: 0,
+        remaining_bps: ctx.accounts.config.alloc_remaining_bps,
+        rest_sum: ctx.accounts.config.alloc_rest_sum,
+    };
+    let allocatable_pool = ctx.accounts.config.allocatable_pool;
+    let reband_band_bps = ctx.accounts.config.reband_band_bps;
+    let turnover_cap_bps = ctx.accounts.config.turnover_cap_bps;
+    let turnover_used = ctx.accounts.config.epoch_turnover_used;
+    let bond_ratio_bps = ctx.accounts.config.bond_ratio_bps;
+    let eff_max_weight_bps = math::effective_max_weight_bps(
+        ctx.accounts.config.w_max_bps,
+        ctx.accounts.config.active_forager_count,
+        CAP_RELAX_MARGIN_BPS,
+    );
+
+    let forager_key = ctx.accounts.forager.key();
+    let pheromone = ctx.accounts.forager.pheromone;
+    let bond = ctx.accounts.forager.bond;
+    let current = ctx.accounts.forager.principal;
+
+    let weight_bps = math::weight_bps_from_level(pheromone, &level, eff_max_weight_bps);
+
+    // Bond gate (risk-spec 1.1). Skin in the game gates capital, not the other
+    // way around: a trail that would earn more than its bond supports is capped
+    // here instead of having the bond topped up on the operator's behalf.
+    let pheromone_target = math::allocation_target(
+        pheromone,
+        &level,
+        allocatable_pool,
+        eff_max_weight_bps,
+    )
+    .min(math::bond_capacity(bond, bond_ratio_bps));
+
+    // The target depends on lifecycle state. Only an Active forager may draw
+    // main-pool capital; every other state can return capital but never take
+    // more, which is enforced structurally here by clamping the target at or
+    // below the current principal.
+    let target = match ctx.accounts.forager.status {
+        STATUS_ACTIVE => pheromone_target,
+
+        // A forager dropped below the demotion threshold returns to the Scout
+        // Sandbox, where it trades small fixed tickets, so its main-pool
+        // capital is recalled down to a single ticket. This is the "capital is
+        // withdrawn to the vault" half of the drop rule. Without it a demoted
+        // forager would hold its old allocation indefinitely: it no longer
+        // qualifies for an Active rebalance, and it cannot be retired while it
+        // still holds principal. Clamping at `current` keeps this a recall
+        // path only, so it can never top a scout up to a ticket -- funding a
+        // scout is `fund_scout`'s job and is metered by the exploration budget.
+        STATUS_SCOUT => scout_ticket.min(current),
+
+        // Probation freezes new allocation during the grace window but must
+        // still let capital come back if the trail has decayed.
+        STATUS_PROBATION => pheromone_target.min(current),
+
+        // Slashed: unwound back to the vault in full (risk-spec 1.4). The
+        // forager must re-enter through the Scout Sandbox to trade again.
+        _ => 0,
+    };
+
+    require!(
+        !math::within_no_trade_band(current, target, allocatable_pool, reband_band_bps),
+        ColonyError::WithinNoTradeBand
+    );
+
+    let operator = ctx.accounts.forager.operator;
+    let forager_bump = ctx.accounts.forager.bump;
+    let brood_bump = ctx.accounts.brood.bump;
+    let id_le = forager_id.to_le_bytes();
+
+    let forager_seeds: &[&[u8]] = &[
+        SEED_FORAGER,
+        operator.as_ref(),
+        id_le.as_ref(),
+        &[forager_bump],
+    ];
+    let forager_signer: &[&[&[u8]]] = &[forager_seeds];
+
+    let brood_seeds: &[&[u8]] = &[SEED_BROOD, &[brood_bump]];
+    let brood_signer: &[&[&[u8]]] = &[brood_seeds];
+
+    let principal_after;
+
+    if target > current {
+        let mut delta = target - current;
+        delta = math::apply_turnover_cap(delta, turnover_used, allocatable_pool, turnover_cap_bps);
+        delta = delta.min(ctx.accounts.brood.idle_base);
+        require!(delta > 0, ColonyError::TurnoverCapReached);
+
+        let brood_authority = ctx.accounts.brood.to_account_info();
+        utils::transfer_signed(
+            &ctx.accounts.token_program,
+            &ctx.accounts.vault_base,
+            &ctx.accounts.forager_vault,
+            &ctx.accounts.base_mint,
+            &brood_authority,
+            brood_signer,
+            delta,
+        )?;
+
+        {
+            let brood = &mut ctx.accounts.brood;
+            brood.idle_base = brood.idle_base.saturating_sub(delta);
+            brood.outstanding_principal = brood
+                .outstanding_principal
+                .checked_add(delta)
+                .ok_or(ColonyError::Overflow)?;
+        }
+
+        principal_after = current.checked_add(delta).ok_or(ColonyError::Overflow)?;
+
+        {
+            let config = &mut ctx.accounts.config;
+            config.epoch_turnover_used = turnover_used
+                .checked_add(delta)
+                .ok_or(ColonyError::Overflow)?;
+        }
+    } else {
+        let mut delta = current - target;
+        delta = math::apply_turnover_cap(delta, turnover_used, allocatable_pool, turnover_cap_bps);
+
+        // Capital already deployed to an external venue cannot be force-recalled
+        // by this program; only what is actually idle inside the sub-account can
+        // be taken back. A partial recall is correct behavior, not a failure --
+        // the rest returns when the position settles.
+        let reclaimable = ctx
+            .accounts
+            .forager_vault
+            .amount
+            .saturating_sub(bond)
+            .min(current);
+        delta = delta.min(reclaimable);
+        require!(delta > 0, ColonyError::TurnoverCapReached);
+
+        let forager_authority = ctx.accounts.forager.to_account_info();
+        utils::transfer_signed(
+            &ctx.accounts.token_program,
+            &ctx.accounts.forager_vault,
+            &ctx.accounts.vault_base,
+            &ctx.accounts.base_mint,
+            &forager_authority,
+            forager_signer,
+            delta,
+        )?;
+
+        {
+            let brood = &mut ctx.accounts.brood;
+            brood.idle_base = brood
+                .idle_base
+                .checked_add(delta)
+                .ok_or(ColonyError::Overflow)?;
+            brood.outstanding_principal = brood.outstanding_principal.saturating_sub(delta);
+        }
+
+        principal_after = current.saturating_sub(delta);
+
+        {
+            let config = &mut ctx.accounts.config;
+            config.epoch_turnover_used = turnover_used
+                .checked_add(delta)
+                .ok_or(ColonyError::Overflow)?;
+        }
+    }
+
+    {
+        let forager = &mut ctx.accounts.forager;
+        forager.principal = principal_after;
+        // A rebalance is a capital flow, not performance. Rebasing the
+        // high-water mark on it keeps the drawdown figure measuring what the
+        // forager did, so recalling capital cannot manufacture a drawdown deep
+        // enough to trigger probation or a slash, and adding capital cannot
+        // erase one the forager actually incurred.
+        forager.high_water = rescale_high_water(forager.high_water, current, principal_after);
+    }
+
+    emit!(ForagerRebalanced {
+        forager: forager_key,
+        epoch,
+        target,
+        principal_before: current,
+        principal_after,
+        weight_bps,
     });
 
     Ok(())

@@ -56,6 +56,12 @@ pub enum ColonyError {
     VaultMismatch,
     #[msg("Forager still holds principal; settle and unwind before retiring")]
     ForagerStillDeployed,
+    #[msg("Rebalance skipped: target is inside the no-trade band")]
+    WithinNoTradeBand,
+    #[msg("Per-epoch turnover cap reached")]
+    TurnoverCapReached,
+    #[msg("Allocation exceeds what the posted bond supports")]
+    BondCapacityExceeded,
     #[msg("Colony must have at least one active forager")]
     NoActiveForagers,
 }
