@@ -262,6 +262,22 @@ Full trigger thresholds and bond mechanics are in `risk-spec.md`.
 
 ---
 
+## 7. Reading the colony: Trail Board and clients
+
+The indexer API projects on-chain state into the read model the front end
+renders as the underground colony cross-section. Each forager is a trail; trail
+thickness and brightness track current pheromone and allocation; a fading trail
+is a forager whose realized performance has decayed. The same read model backs
+`kolny deposit`, `kolny trails`, and `kolny forager stats` in the CLI, and the
+Agent SDK that external developers use to register their own agent as a forager.
+
+The header trust indicators are computed from realized on-chain state only:
+active forager count, capital under colony, trailing 30-day realized return,
+active trail count, the pinned Anchor version, and the network. No backtest or
+projected figure appears there.
+
+---
+
 ## 8. Implementation note: Anchor version
 
 The concept material references "Anchor 0.31". As of 2026-08 that is two major
