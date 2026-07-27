@@ -181,6 +181,26 @@ pub struct ForagerRebalanced {
 }
 
 #[event]
+pub struct ScoutFunded {
+    pub forager: Pubkey,
+    pub epoch: u64,
+    pub ticket: u64,
+    pub scout_pool_remaining: u64,
+}
+
+#[event]
+pub struct ForagerSlashed {
+    pub forager: Pubkey,
+    pub operator: Pubkey,
+    pub reason_code: u8,
+    pub slashed: u64,
+    pub burned: u64,
+    pub to_cache: u64,
+    pub bond_after: u64,
+    pub slash_count: u16,
+}
+
+#[event]
 pub struct CacheFunded {
     pub funder: Pubkey,
     pub amount: u64,
