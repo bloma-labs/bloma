@@ -162,4 +162,12 @@ pub mod kolny_colony {
     pub fn fund_scout(ctx: Context<FundScout>, forager_id: u64) -> Result<()> {
         risk::fund_scout(ctx, forager_id)
     }
+
+    pub fn slash_forager(
+        ctx: Context<SlashForager>,
+        forager_id: u64,
+        reason_code: u8,
+    ) -> Result<()> {
+        risk::slash_forager(ctx, forager_id, reason_code)
+    }
 }

@@ -42,6 +42,8 @@ pub enum ColonyError {
     RegistrationFrozenDuringSettlement,
     #[msg("Slash amount exceeds the posted bond")]
     SlashTooLarge,
+    #[msg("Forager is not slashable under any configured condition")]
+    NotSlashable,
     #[msg("Redemption request is not ready to be fulfilled")]
     RedemptionNotReady,
     #[msg("Redemption request has already been fully paid")]
