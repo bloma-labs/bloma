@@ -1283,4 +1283,32 @@ mod tests {
         assert_eq!(cache_accrual(0, 1_000), 0);
         assert_eq!(cache_accrual(1_000_000, 0), 0);
     }
+
+    // -- end-to-end: a losing forager decays out of the pool ----------------
+
+    #[test]
+    fn losing_forager_decays_out_of_allocation() {
+        let ceil = 1_000_000_000_000u64;
+        let rho = 1_600u16;
+        let q = 1_000_000u64;
+
+        let mut winner = 1_000_000u64;
+        let mut loser = 1_000_000u64;
+
+        for _ in 0..6 {
+            let w_perf = risk_adjusted_perf_bps(return_bps(80, 1_000), 200, 10_000);
+            let l_perf = risk_adjusted_perf_bps(return_bps(-120, 1_000), 2_500, 10_000);
+            winner = update_pheromone(winner, deposit_fp6(w_perf, 1_000, q), rho, ceil);
+            loser = update_pheromone(loser, deposit_fp6(l_perf, 1_000, q), rho, ceil);
+        }
+
+        assert!(winner > loser * 4, "winner {} loser {}", winner, loser);
+
+        let s = (winner + loser) as u128;
+        let top = [winner, loser];
+        let k = solve_cap_level(s, &top, 2, 9_000);
+        let wt = allocation_target(winner, &k, 1_000_000, 9_000);
+        let lt = allocation_target(loser, &k, 1_000_000, 9_000);
+        assert!(wt > lt * 4, "capital did not follow the trail");
+    }
 }
