@@ -490,4 +490,41 @@ mod tests {
             BPS_DENOM
         );
     }
+
+    #[test]
+    fn non_response_needs_the_timeout_to_have_actually_passed() {
+        // A live operator cannot be slashed for silence.
+        assert!(punitive_slash_bps(SLASH_REASON_NON_RESPONSE, 0, DD_SLASH, 0, TIMEOUT).is_err());
+        // Exactly at the limit is still not past it.
+        assert!(
+            punitive_slash_bps(SLASH_REASON_NON_RESPONSE, 0, DD_SLASH, TIMEOUT, TIMEOUT).is_err()
+        );
+        assert_eq!(
+            punitive_slash_bps(SLASH_REASON_NON_RESPONSE, 0, DD_SLASH, TIMEOUT + 1, TIMEOUT)
+                .unwrap(),
+            BPS_DENOM
+        );
+    }
+
+    #[test]
+    fn unrecognized_reason_codes_are_refused() {
+        // An authority cannot invent a cause: anything outside the published
+        // three codes fails, however bad the forager's state looks.
+        for code in [3u8, 4, 9, 200, 255] {
+            assert!(punitive_slash_bps(code, 9_000, DD_SLASH, i64::MAX, 0).is_err());
+        }
+    }
+
+    #[test]
+    fn a_seized_bond_is_split_without_leaking_value() {
+        // The two transfer legs of a slash must add up to exactly what was
+        // taken from the bond, at every burn share.
+        for burn_share in [0u16, 2_500, 5_000, 7_500, BPS_DENOM] {
+            for bond in [0u64, 1, 999, 1_000_000] {
+                let out = math::slash_split(bond, BPS_DENOM, burn_share);
+                assert_eq!(out.burn + out.to_cache, out.slashed);
+                assert!(out.slashed <= bond);
+            }
+        }
+    }
 }
