@@ -45,3 +45,74 @@ function u64le(value: number | bigint): Buffer {
   buf.writeBigUInt64LE(BigInt(value));
   return buf;
 }
+
+export function colonyConfigPda(programId: PublicKey): [PublicKey, number] {
+  return PublicKey.findProgramAddressSync([SEED_COLONY], programId);
+}
+
+export function broodStatePda(programId: PublicKey): [PublicKey, number] {
+  return PublicKey.findProgramAddressSync([SEED_BROOD], programId);
+}
+
+export function riskCacheStatePda(programId: PublicKey): [PublicKey, number] {
+  return PublicKey.findProgramAddressSync([SEED_CACHE], programId);
+}
+
+export function trailBoardPda(programId: PublicKey): [PublicKey, number] {
+  return PublicKey.findProgramAddressSync([SEED_TRAIL_BOARD], programId);
+}
+
+export function foragerStatePda(
+  programId: PublicKey,
+  operator: PublicKey,
+  foragerId: number | bigint,
+): [PublicKey, number] {
+  return PublicKey.findProgramAddressSync(
+    [SEED_FORAGER, operator.toBuffer(), u64le(foragerId)],
+    programId,
+  );
+}
+
+export function foragerVaultPda(
+  programId: PublicKey,
+  foragerState: PublicKey,
+): [PublicKey, number] {
+  return PublicKey.findProgramAddressSync(
+    [SEED_FORAGER_VAULT, foragerState.toBuffer()],
+    programId,
+  );
+}
+
+export function vaultBasePda(programId: PublicKey): [PublicKey, number] {
+  return PublicKey.findProgramAddressSync([SEED_BROOD_VAULT], programId);
+}
+
+export function cacheVaultPda(programId: PublicKey): [PublicKey, number] {
+  return PublicKey.findProgramAddressSync([SEED_CACHE_VAULT], programId);
+}
+
+export function incineratorVaultPda(programId: PublicKey): [PublicKey, number] {
+  return PublicKey.findProgramAddressSync([SEED_INCINERATOR], programId);
+}
+
+export function depositorPositionPda(
+  programId: PublicKey,
+  depositor: PublicKey,
+): [PublicKey, number] {
+  return PublicKey.findProgramAddressSync(
+    [SEED_POSITION, depositor.toBuffer()],
+    programId,
+  );
+}
+
+export function redemptionRequestPda(
+  programId: PublicKey,
+  depositor: PublicKey,
+  requestId: number | bigint,
+): [PublicKey, number] {
+  return PublicKey.findProgramAddressSync(
+    [SEED_REDEEM, depositor.toBuffer(), u64le(requestId)],
+    programId,
+  );
+}
+
