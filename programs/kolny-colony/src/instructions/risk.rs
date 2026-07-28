@@ -448,3 +448,46 @@ pub fn slash_forager(ctx: Context<SlashForager>, forager_id: u64, reason_code: u
 
     Ok(())
 }
+
+// ===========================================================================
+// Tests
+// ===========================================================================
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const DD_SLASH: u16 = 3_000;
+    const TIMEOUT: i64 = 2 * 604_800;
+
+    #[test]
+    fn loss_threshold_slash_is_graduated() {
+        // At or under the threshold there is nothing to seize, and the call is
+        // refused instead of recording a zero slash.
+        assert!(punitive_slash_bps(SLASH_REASON_LOSS_THRESHOLD, 2_000, DD_SLASH, 0, 0).is_err());
+        assert!(punitive_slash_bps(SLASH_REASON_LOSS_THRESHOLD, DD_SLASH, DD_SLASH, 0, 0).is_err());
+        // Halfway past the threshold seizes half the bond.
+        assert_eq!(
+            punitive_slash_bps(SLASH_REASON_LOSS_THRESHOLD, 4_500, DD_SLASH, 0, 0).unwrap(),
+            5_000
+        );
+        // Twice the threshold seizes all of it, and it stays clamped there.
+        assert_eq!(
+            punitive_slash_bps(SLASH_REASON_LOSS_THRESHOLD, 6_000, DD_SLASH, 0, 0).unwrap(),
+            BPS_DENOM
+        );
+        assert_eq!(
+            punitive_slash_bps(SLASH_REASON_LOSS_THRESHOLD, 9_500, DD_SLASH, 0, 0).unwrap(),
+            BPS_DENOM
+        );
+    }
+
+    #[test]
+    fn integrity_failures_seize_the_whole_bond() {
+        // A rule violation does not consult the drawdown at all.
+        assert_eq!(
+            punitive_slash_bps(SLASH_REASON_RULE_VIOLATION, 0, DD_SLASH, 0, TIMEOUT).unwrap(),
+            BPS_DENOM
+        );
+    }
+}
