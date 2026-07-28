@@ -56,6 +56,10 @@ pub enum ColonyError {
     VaultMismatch,
     #[msg("Forager still holds principal; settle and unwind before retiring")]
     ForagerStillDeployed,
+    #[msg("Scout pool is exhausted for this epoch")]
+    ScoutPoolExhausted,
+    #[msg("Forager has already drawn a scout ticket this epoch")]
+    ScoutTicketAlreadyDrawn,
     #[msg("Rebalance skipped: target is inside the no-trade band")]
     WithinNoTradeBand,
     #[msg("Per-epoch turnover cap reached")]

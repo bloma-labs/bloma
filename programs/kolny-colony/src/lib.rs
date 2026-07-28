@@ -156,4 +156,10 @@ pub mod kolny_colony {
     pub fn rebalance_forager(ctx: Context<RebalanceForager>, forager_id: u64) -> Result<()> {
         settlement::rebalance_forager(ctx, forager_id)
     }
+
+    // -- exploration and risk ------------------------------------------------
+
+    pub fn fund_scout(ctx: Context<FundScout>, forager_id: u64) -> Result<()> {
+        risk::fund_scout(ctx, forager_id)
+    }
 }
