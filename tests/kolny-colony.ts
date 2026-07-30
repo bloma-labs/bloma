@@ -116,3 +116,132 @@ export function redemptionRequestPda(
   );
 }
 
+// ---------------------------------------------------------------------------
+
+describe("kolny-colony", () => {
+  anchor.setProvider(anchor.AnchorProvider.env());
+  const program = anchor.workspace.KolnyColony as Program<KolnyColony>;
+  const programId = program.programId;
+
+  describe("pda derivation", () => {
+    it("derives every singleton deterministically", () => {
+      const [colony] = colonyConfigPda(programId);
+      const [brood] = broodStatePda(programId);
+      const [cache] = riskCacheStatePda(programId);
+      const [board] = trailBoardPda(programId);
+
+      // Distinct seeds must produce distinct addresses.
+      const all = [colony, brood, cache, board].map((p) => p.toBase58());
+      assert.equal(new Set(all).size, all.length);
+
+      // Derivation is pure.
+      assert.equal(colonyConfigPda(programId)[0].toBase58(), colony.toBase58());
+    });
+
+    it("uses little-endian for the forager id", () => {
+      const operator = PublicKey.unique();
+      const [a] = foragerStatePda(programId, operator, 1);
+      const [b] = foragerStatePda(programId, operator, 256);
+      // If the id were serialized big-endian these would collide in the wrong
+      // byte position; asserting they differ guards the endianness contract.
+      assert.notEqual(a.toBase58(), b.toBase58());
+
+      const manual = PublicKey.findProgramAddressSync(
+        [SEED_FORAGER, operator.toBuffer(), u64le(1)],
+        programId,
+      )[0];
+      assert.equal(a.toBase58(), manual.toBase58());
+    });
+
+    it("derives a forager vault from the forager record", () => {
+      const operator = PublicKey.unique();
+      const [foragerState] = foragerStatePda(programId, operator, 7);
+      const [vault] = foragerVaultPda(programId, foragerState);
+      assert.notEqual(vault.toBase58(), foragerState.toBase58());
+    });
+
+    it("separates depositors and redemption requests", () => {
+      const alice = PublicKey.unique();
+      const bob = PublicKey.unique();
+      assert.notEqual(
+        depositorPositionPda(programId, alice)[0].toBase58(),
+        depositorPositionPda(programId, bob)[0].toBase58(),
+      );
+      assert.notEqual(
+        redemptionRequestPda(programId, alice, 0)[0].toBase58(),
+        redemptionRequestPda(programId, alice, 1)[0].toBase58(),
+      );
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // The following require a running validator and a deployed program.
+  // They are intentionally skipped so that no test run can contact a cluster.
+  // -------------------------------------------------------------------------
+
+  describe.skip("colony lifecycle (needs a local validator)", () => {
+    it("initializes the colony with in-range parameters", async () => {
+      // initialize_colony -> initialize_brood -> open_vault_base
+      // -> initialize_risk_cache -> open_cache_vault
+      // -> open_incinerator_vault -> initialize_trail_board
+    });
+
+    it("rejects a parameter outside the published range", async () => {
+      // update_config with rho_bps above MAX_RHO_BPS must fail ParamOutOfRange.
+    });
+
+    it("transfers authority in two steps", async () => {
+      // propose_authority then accept_authority, signed by the pending key.
+    });
+  });
+
+  describe.skip("deposits and shares (needs a local validator)", () => {
+    it("mints shares rounded down in the vault's favor", async () => {});
+
+    it("ignores tokens transferred directly into the vault", async () => {
+      // NAV is an accounting counter, so a donation must not move share price.
+    });
+
+    it("refuses a withdrawal larger than idle liquidity", async () => {
+      // Must fail InsufficientIdleLiquidity and route to request_redemption.
+    });
+
+    it("services a queued redemption partially, then fully", async () => {});
+  });
+
+  describe.skip("settlement crank (needs a local validator)", () => {
+    it("excludes the bond when measuring realized performance", async () => {
+      // Top up a bond with no trading activity; realized must be exactly 0
+      // and the trail must not strengthen.
+    });
+
+    it("is idempotent within an epoch", async () => {
+      // A second settle_forager in the same epoch must fail
+      // AlreadySettledThisEpoch.
+    });
+
+    it("refuses to finalize before every forager has settled", async () => {
+      // Must fail SettlementIncomplete.
+    });
+
+    it("freezes registration while settling", async () => {
+      // Must fail RegistrationFrozenDuringSettlement.
+    });
+
+    it("redistributes capped weight to the uncapped foragers", async () => {
+      // Reproduces the worked example from docs/allocation-spec.md 10.2.
+    });
+
+    it("demotes a forager whose trail decayed below the drop threshold", async () => {});
+  });
+
+  describe.skip("risk (needs a local validator)", () => {
+    it("absorbs a loss in bond, then cache, then depositor NAV", async () => {});
+
+    it("splits a slash between the incinerator and the cache", async () => {});
+
+    it("refuses a non-response slash before the timeout elapses", async () => {
+      // Must fail NotSlashable.
+    });
+  });
+});
