@@ -110,3 +110,62 @@ balance, not taken on the operator's word**:
 
 ---
 
+## 5. Known attack surface
+
+### 5.1 Pheromone grinding (manufacturing performance)
+
+An operator trades with itself or a colluding counterparty to manufacture
+realized profit and attract more allocation.
+
+- **Wash trading loses money.** Round-tripping between accounts the operator
+  controls pays trading fees and spread each cycle, so it cannot manufacture net
+  realized profit; it destroys value. Manufacturing a real gain requires an
+  external counterparty to actually pay the operator, which is expensive and
+  self-limiting.
+- **Reconciliation** (section 3.2) means only genuine base-asset inflow to the
+  sub-account counts, so fabricated fills that do not change the balance are
+  ignored.
+- **Whitelist** confines trading to venues with real order books and pools;
+  internal transfers are not counted.
+- **Off-chain detection** flags round-trip and counterparty patterns for admin
+  review and possible slash.
+- **Bounded deposit and caps** limit the allocation any grinding can earn, and
+  the **bond** is slashed if the manufactured exposure later loses.
+
+### 5.2 Sandwich and MEV on rebalancing
+
+Epoch rebalancing trades are somewhat predictable and can be front-run.
+
+- Rebalances carry **slippage limits** and are **split and jittered** across a
+  window rather than fired as one large order at a known slot.
+- Execution prefers **aggregators, RFQ, or TWAP** over a single market sweep, and
+  **private relays or Jito bundles** where available to reduce MEV exposure.
+- The **no-trade band** and **turnover cap** (`allocation-spec.md` section 8)
+  shrink the size and frequency of moves, which is itself the strongest MEV
+  reducer.
+
+### 5.3 Epoch-boundary timing
+
+Actors may time actions around the epoch close to flatter performance or to jump
+a known reallocation.
+
+- **Settlement cutoff.** Only trades settled strictly before the close slot
+  count, with a small buffer that excludes last-slot ambiguous fills, so an
+  operator cannot stuff a favorable print into the boundary.
+- **Anti-sniping on deposits.** Reallocation targets are computed from pheromone
+  committed before the close, so a late depositor cannot front-run a reallocation
+  they can already see; a short redemption cooldown (or a fee on an immediate
+  deposit-withdraw round trip) removes the costless timing play.
+- **Close-slot unpredictability.** The exact close slot floats within a window,
+  and performance inputs can be committed under commit-reveal, so the precise
+  boundary is not a fixed, gameable target.
+
+### 5.4 Bond token price manipulation
+
+Manipulating the `$KOLNY` oracle to over-value a bond (to under-collateralize) or
+under-value it (to force a top-up) is mitigated by the robust oracle discipline
+of section 3.1, the 30 percent bond haircut, and the top-up windows in
+`risk-spec.md` section 1.2.
+
+---
+
