@@ -110,6 +110,26 @@ balance, not taken on the operator's word**:
 
 ---
 
+## 4. Upgrade authority and config safety
+
+- **Upgrade authority** for the program is held by a multisig and should sit
+  behind a timelock, so an upgrade is visible before it takes effect. The holder
+  and the policy are published. Upgradability is itself a centralization risk and
+  is treated as one: the honest position is that users trust the multisig and
+  timelock during the program's early life, with a stated path toward tightening
+  or handing off that authority. The IDL is published and versioned in the
+  public repository so clients build against a known interface.
+- **Config safety.** Every config parameter is range-checked on-chain against the
+  bounds in `allocation-spec.md` section 11 and `risk-spec.md` section 7. This
+  matters because a malicious or fat-fingered admin change is a real threat: an
+  evaporation rate of zero would freeze trails forever, a max weight of 100
+  percent would let one forager take everything. Because the program enforces the
+  ranges, **even the admin cannot store an out-of-range value**, which bounds the
+  blast radius of a compromised admin key. Economic parameter changes should also
+  pass through the timelock so depositors can react.
+
+---
+
 ## 5. Known attack surface
 
 ### 5.1 Pheromone grinding (manufacturing performance)
