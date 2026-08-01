@@ -1,0 +1,4931 @@
+{
+  "address": "Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS",
+  "metadata": {
+    "name": "kolny_colony",
+    "version": "0.1.0",
+    "spec": "0.1.0",
+    "description": "KOLNY colony allocation, settlement and loss-containment program"
+  },
+  "instructions": [
+    {
+      "name": "accept_authority",
+      "discriminator": [
+        107,
+        86,
+        198,
+        91,
+        33,
+        12,
+        107,
+        160
+      ],
+      "accounts": [
+        {
+          "name": "config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  108,
+                  111,
+                  110,
+                  121
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "new_authority",
+          "docs": [
+            "Must be the pending authority, and must sign. That signature is the",
+            "whole point of the two-step handover: it proves the key exists and its",
+            "holder can transact before it takes over."
+          ],
+          "signer": true
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "begin_settlement",
+      "discriminator": [
+        124,
+        223,
+        80,
+        249,
+        19,
+        59,
+        26,
+        92
+      ],
+      "accounts": [
+        {
+          "name": "config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  108,
+                  111,
+                  110,
+                  121
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "trail_board",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  116,
+                  114,
+                  97,
+                  105,
+                  108,
+                  95,
+                  98,
+                  111,
+                  97,
+                  114,
+                  100
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "cranker",
+          "docs": [
+            "Permissionless crank. Pays for the transaction and holds no privilege."
+          ],
+          "signer": true
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "deposit",
+      "discriminator": [
+        242,
+        35,
+        198,
+        137,
+        82,
+        225,
+        242,
+        182
+      ],
+      "accounts": [
+        {
+          "name": "depositor",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "base_mint",
+          "relations": [
+            "config",
+            "brood"
+          ]
+        },
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  108,
+                  111,
+                  110,
+                  121
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "brood",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  98,
+                  114,
+                  111,
+                  111,
+                  100
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "position",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  111,
+                  115,
+                  105,
+                  116,
+                  105,
+                  111,
+                  110
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "depositor"
+              }
+            ]
+          }
+        },
+        {
+          "name": "depositor_ata",
+          "docs": [
+            "Source of the base asset. Any token account of the base mint owned by",
+            "the signer is accepted; canonically this is the depositor's associated",
+            "token account."
+          ],
+          "writable": true
+        },
+        {
+          "name": "vault_base",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  98,
+                  114,
+                  111,
+                  111,
+                  100,
+                  95,
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "token_program"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "assets",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "finalize_settlement",
+      "discriminator": [
+        220,
+        72,
+        152,
+        119,
+        178,
+        196,
+        25,
+        170
+      ],
+      "accounts": [
+        {
+          "name": "config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  108,
+                  111,
+                  110,
+                  121
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "brood",
+          "docs": [
+            "Read only: the next epoch's pools are sized from accounting NAV."
+          ],
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  98,
+                  114,
+                  111,
+                  111,
+                  100
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "trail_board",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  116,
+                  114,
+                  97,
+                  105,
+                  108,
+                  95,
+                  98,
+                  111,
+                  97,
+                  114,
+                  100
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "cranker",
+          "docs": [
+            "Permissionless crank."
+          ],
+          "signer": true
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "fulfill_redemption",
+      "discriminator": [
+        135,
+        55,
+        160,
+        245,
+        203,
+        83,
+        197,
+        146
+      ],
+      "accounts": [
+        {
+          "name": "cranker",
+          "signer": true
+        },
+        {
+          "name": "base_mint",
+          "relations": [
+            "brood"
+          ]
+        },
+        {
+          "name": "owner",
+          "docs": [
+            "seed derivation and by `has_one = owner`, so it can only be the account",
+            "that filed this request; it serves as the payout destination authority."
+          ],
+          "relations": [
+            "request"
+          ]
+        },
+        {
+          "name": "brood",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  98,
+                  114,
+                  111,
+                  111,
+                  100
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "request",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  100,
+                  101,
+                  101,
+                  109
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "owner"
+              },
+              {
+                "kind": "arg",
+                "path": "request_id"
+              }
+            ]
+          }
+        },
+        {
+          "name": "vault_base",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  98,
+                  114,
+                  111,
+                  111,
+                  100,
+                  95,
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "owner_ata",
+          "writable": true
+        },
+        {
+          "name": "token_program"
+        }
+      ],
+      "args": [
+        {
+          "name": "request_id",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "fund_cache",
+      "discriminator": [
+        191,
+        198,
+        246,
+        50,
+        21,
+        159,
+        75,
+        179
+      ],
+      "accounts": [
+        {
+          "name": "funder",
+          "signer": true
+        },
+        {
+          "name": "base_mint"
+        },
+        {
+          "name": "cache",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  97,
+                  99,
+                  104,
+                  101
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "cache_vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  97,
+                  99,
+                  104,
+                  101,
+                  95,
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "funder_ata",
+          "writable": true
+        },
+        {
+          "name": "token_program"
+        }
+      ],
+      "args": [
+        {
+          "name": "amount",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "fund_scout",
+      "discriminator": [
+        192,
+        17,
+        106,
+        152,
+        53,
+        15,
+        239,
+        247
+      ],
+      "accounts": [
+        {
+          "name": "operator",
+          "docs": [
+            "The operator that will trade the ticket.",
+            "",
+            "A ticket is drawn, not pushed: requiring the operator's signature means",
+            "nobody can force colony capital into a sub-account that is not asking",
+            "for it, and it ties the forager PDA below to the signer."
+          ],
+          "signer": true,
+          "relations": [
+            "forager"
+          ]
+        },
+        {
+          "name": "config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  108,
+                  111,
+                  110,
+                  121
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "brood",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  98,
+                  114,
+                  111,
+                  111,
+                  100
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "forager",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  102,
+                  111,
+                  114,
+                  97,
+                  103,
+                  101,
+                  114
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "operator"
+              },
+              {
+                "kind": "arg",
+                "path": "forager_id"
+              }
+            ]
+          }
+        },
+        {
+          "name": "vault_base",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  98,
+                  114,
+                  111,
+                  111,
+                  100,
+                  95,
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              }
+            ]
+          },
+          "relations": [
+            "brood"
+          ]
+        },
+        {
+          "name": "forager_vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  102,
+                  111,
+                  114,
+                  97,
+                  103,
+                  101,
+                  114,
+                  95,
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "forager"
+              }
+            ]
+          },
+          "relations": [
+            "forager"
+          ]
+        },
+        {
+          "name": "base_mint",
+          "relations": [
+            "config",
+            "brood"
+          ]
+        },
+        {
+          "name": "token_program"
+        }
+      ],
+      "args": [
+        {
+          "name": "forager_id",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "heartbeat",
+      "discriminator": [
+        202,
+        104,
+        56,
+        6,
+        240,
+        170,
+        63,
+        134
+      ],
+      "accounts": [
+        {
+          "name": "operator",
+          "signer": true,
+          "relations": [
+            "forager"
+          ]
+        },
+        {
+          "name": "forager",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  102,
+                  111,
+                  114,
+                  97,
+                  103,
+                  101,
+                  114
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "operator"
+              },
+              {
+                "kind": "arg",
+                "path": "forager_id"
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "forager_id",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "initialize_brood",
+      "discriminator": [
+        85,
+        106,
+        35,
+        207,
+        209,
+        243,
+        99,
+        135
+      ],
+      "accounts": [
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  108,
+                  111,
+                  110,
+                  121
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "brood_state",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  98,
+                  114,
+                  111,
+                  111,
+                  100
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "config"
+          ]
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "initialize_colony",
+      "discriminator": [
+        91,
+        184,
+        105,
+        243,
+        90,
+        175,
+        137,
+        217
+      ],
+      "accounts": [
+        {
+          "name": "config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  108,
+                  111,
+                  110,
+                  121
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "base_mint",
+          "docs": [
+            "The single asset the colony accounts in. Deposits, allocations, bonds,",
+            "slashing and cache coverage are all denominated in this mint, which is",
+            "what keeps the program free of any price oracle."
+          ]
+        },
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "params",
+          "type": {
+            "defined": {
+              "name": "InitColonyParams"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "initialize_risk_cache",
+      "discriminator": [
+        106,
+        114,
+        187,
+        148,
+        62,
+        209,
+        220,
+        88
+      ],
+      "accounts": [
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  108,
+                  111,
+                  110,
+                  121
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "cache_state",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  97,
+                  99,
+                  104,
+                  101
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "config"
+          ]
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "initialize_trail_board",
+      "discriminator": [
+        181,
+        222,
+        236,
+        171,
+        221,
+        144,
+        202,
+        81
+      ],
+      "accounts": [
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  108,
+                  111,
+                  110,
+                  121
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "trail_board",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  116,
+                  114,
+                  97,
+                  105,
+                  108,
+                  95,
+                  98,
+                  111,
+                  97,
+                  114,
+                  100
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "config"
+          ]
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "open_cache_vault",
+      "discriminator": [
+        215,
+        235,
+        233,
+        11,
+        28,
+        247,
+        207,
+        103
+      ],
+      "accounts": [
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  108,
+                  111,
+                  110,
+                  121
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "cache_state",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  97,
+                  99,
+                  104,
+                  101
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "cache_vault",
+          "docs": [
+            "Holds the insurance reserve that absorbs depositor losses."
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  97,
+                  99,
+                  104,
+                  101,
+                  95,
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "base_mint",
+          "relations": [
+            "config"
+          ]
+        },
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "config"
+          ]
+        },
+        {
+          "name": "token_program"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "open_forager_vault",
+      "discriminator": [
+        130,
+        155,
+        128,
+        28,
+        86,
+        222,
+        66,
+        78
+      ],
+      "accounts": [
+        {
+          "name": "operator",
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "forager"
+          ]
+        },
+        {
+          "name": "config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  108,
+                  111,
+                  110,
+                  121
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "forager",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  102,
+                  111,
+                  114,
+                  97,
+                  103,
+                  101,
+                  114
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "operator"
+              },
+              {
+                "kind": "arg",
+                "path": "forager_id"
+              }
+            ]
+          }
+        },
+        {
+          "name": "base_mint"
+        },
+        {
+          "name": "forager_vault",
+          "docs": [
+            "The forager's isolated sub-account. Its authority is the forager record",
+            "PDA, so the operator can never move base asset out of it by signing",
+            "directly; only this program can, and only along the paths written here."
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  102,
+                  111,
+                  114,
+                  97,
+                  103,
+                  101,
+                  114,
+                  95,
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "forager"
+              }
+            ]
+          }
+        },
+        {
+          "name": "token_program"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "forager_id",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "open_incinerator_vault",
+      "discriminator": [
+        154,
+        98,
+        41,
+        4,
+        155,
+        36,
+        78,
+        92
+      ],
+      "accounts": [
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  108,
+                  111,
+                  110,
+                  121
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "cache_state",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  97,
+                  99,
+                  104,
+                  101
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "incinerator_vault",
+          "docs": [
+            "One-way sink for the burned share of a seized bond.",
+            "",
+            "This program contains no instruction that transfers out of this account",
+            "and none may ever be added. Its authority is a PDA whose signing seeds",
+            "only ever appear on transfers into it, so the balance is economically",
+            "destroyed: unreachable by the authority, by an operator, and by the",
+            "program itself. Nothing here reduces the supply of any mint, and the",
+            "public copy must not describe it as if it did."
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  105,
+                  110,
+                  99,
+                  105,
+                  110,
+                  101,
+                  114,
+                  97,
+                  116,
+                  111,
+                  114
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "base_mint",
+          "relations": [
+            "config"
+          ]
+        },
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "config"
+          ]
+        },
+        {
+          "name": "token_program"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "open_vault_base",
+      "discriminator": [
+        199,
+        237,
+        146,
+        67,
+        213,
+        34,
+        176,
+        0
+      ],
+      "accounts": [
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  108,
+                  111,
+                  110,
+                  121
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "brood_state",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  98,
+                  114,
+                  111,
+                  111,
+                  100
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "vault_base",
+          "docs": [
+            "The colony's single custody account for idle base asset. Owned by the",
+            "brood PDA, so only this program can move anything out of it."
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  98,
+                  114,
+                  111,
+                  111,
+                  100,
+                  95,
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "base_mint",
+          "relations": [
+            "config",
+            "brood_state"
+          ]
+        },
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "config"
+          ]
+        },
+        {
+          "name": "token_program"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "promote_forager",
+      "discriminator": [
+        47,
+        77,
+        202,
+        145,
+        167,
+        18,
+        50,
+        64
+      ],
+      "accounts": [
+        {
+          "name": "cranker",
+          "docs": [
+            "Permissionless caller. Promotion is decided entirely from committed",
+            "on-chain state, so anyone may push a qualifying scout through."
+          ],
+          "signer": true
+        },
+        {
+          "name": "operator",
+          "docs": [
+            "`has_one` and by the forager PDA seeds, and exists only so the record's",
+            "address can be derived."
+          ],
+          "relations": [
+            "forager"
+          ]
+        },
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  108,
+                  111,
+                  110,
+                  121
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "forager",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  102,
+                  111,
+                  114,
+                  97,
+                  103,
+                  101,
+                  114
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "operator"
+              },
+              {
+                "kind": "arg",
+                "path": "forager_id"
+              }
+            ]
+          }
+        }
+      ],
+      "args": [
+        {
+          "name": "forager_id",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "propose_authority",
+      "discriminator": [
+        20,
+        148,
+        236,
+        198,
+        76,
+        119,
+        99,
+        142
+      ],
+      "accounts": [
+        {
+          "name": "config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  108,
+                  111,
+                  110,
+                  121
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "authority",
+          "signer": true,
+          "relations": [
+            "config"
+          ]
+        }
+      ],
+      "args": [
+        {
+          "name": "new_authority",
+          "type": "pubkey"
+        }
+      ]
+    },
+    {
+      "name": "rebalance_forager",
+      "discriminator": [
+        1,
+        156,
+        15,
+        202,
+        164,
+        97,
+        32,
+        95
+      ],
+      "accounts": [
+        {
+          "name": "config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  108,
+                  111,
+                  110,
+                  121
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "forager",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  102,
+                  111,
+                  114,
+                  97,
+                  103,
+                  101,
+                  114
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "forager.operator",
+                "account": "ForagerState"
+              },
+              {
+                "kind": "arg",
+                "path": "forager_id"
+              }
+            ]
+          }
+        },
+        {
+          "name": "forager_vault",
+          "writable": true,
+          "relations": [
+            "forager"
+          ]
+        },
+        {
+          "name": "brood",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  98,
+                  114,
+                  111,
+                  111,
+                  100
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "vault_base",
+          "writable": true,
+          "relations": [
+            "brood"
+          ]
+        },
+        {
+          "name": "base_mint",
+          "relations": [
+            "config"
+          ]
+        },
+        {
+          "name": "token_program"
+        },
+        {
+          "name": "cranker",
+          "docs": [
+            "Permissionless crank."
+          ],
+          "signer": true
+        }
+      ],
+      "args": [
+        {
+          "name": "forager_id",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "register_forager",
+      "docs": [
+        "Creates the forager record only. The sub-account is opened by",
+        "`open_forager_vault` (its address derives from this record, so it cannot",
+        "exist first) and the bond is posted by `top_up_bond`. A forager starts",
+        "as a Scout with a zero bond and receives no main-pool capital until it",
+        "is promoted, so the three-step bootstrap is safe to interleave."
+      ],
+      "discriminator": [
+        54,
+        198,
+        33,
+        89,
+        21,
+        234,
+        193,
+        250
+      ],
+      "accounts": [
+        {
+          "name": "operator",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  108,
+                  111,
+                  110,
+                  121
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "forager",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  102,
+                  111,
+                  114,
+                  97,
+                  103,
+                  101,
+                  114
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "operator"
+              },
+              {
+                "kind": "arg",
+                "path": "forager_id"
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "forager_id",
+          "type": "u64"
+        },
+        {
+          "name": "strategy_meta",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "request_redemption",
+      "discriminator": [
+        14,
+        62,
+        182,
+        237,
+        59,
+        79,
+        149,
+        22
+      ],
+      "accounts": [
+        {
+          "name": "depositor",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  108,
+                  111,
+                  110,
+                  121
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "brood",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  98,
+                  114,
+                  111,
+                  111,
+                  100
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "position",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  111,
+                  115,
+                  105,
+                  116,
+                  105,
+                  111,
+                  110
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "depositor"
+              }
+            ]
+          }
+        },
+        {
+          "name": "request",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  100,
+                  101,
+                  101,
+                  109
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "depositor"
+              },
+              {
+                "kind": "account",
+                "path": "brood.next_redemption_id",
+                "account": "BroodVaultState"
+              }
+            ]
+          }
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "shares",
+          "type": "u128"
+        }
+      ]
+    },
+    {
+      "name": "retire_forager",
+      "discriminator": [
+        104,
+        114,
+        178,
+        190,
+        153,
+        181,
+        34,
+        167
+      ],
+      "accounts": [
+        {
+          "name": "caller",
+          "docs": [
+            "Either the forager's operator or the colony authority. Checked in the",
+            "handler, because `has_one` alone would close the authority path."
+          ],
+          "signer": true
+        },
+        {
+          "name": "operator",
+          "docs": [
+            "seeds. It does not sign here -- the authority may also retire a forager,",
+            "and the bond returns to the operator on either path."
+          ],
+          "relations": [
+            "forager"
+          ]
+        },
+        {
+          "name": "config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  108,
+                  111,
+                  110,
+                  121
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "brood",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  98,
+                  114,
+                  111,
+                  111,
+                  100
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "forager",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  102,
+                  111,
+                  114,
+                  97,
+                  103,
+                  101,
+                  114
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "operator"
+              },
+              {
+                "kind": "arg",
+                "path": "forager_id"
+              }
+            ]
+          }
+        },
+        {
+          "name": "base_mint"
+        },
+        {
+          "name": "forager_vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  102,
+                  111,
+                  114,
+                  97,
+                  103,
+                  101,
+                  114,
+                  95,
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "forager"
+              }
+            ]
+          }
+        },
+        {
+          "name": "operator_token_account",
+          "docs": [
+            "Destination for the returned bond. Must be owned by the operator, which",
+            "holds even when the authority is the one retiring the forager."
+          ],
+          "writable": true
+        },
+        {
+          "name": "vault_base",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  98,
+                  114,
+                  111,
+                  111,
+                  100,
+                  95,
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "token_program"
+        }
+      ],
+      "args": [
+        {
+          "name": "forager_id",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "set_paused",
+      "discriminator": [
+        91,
+        60,
+        125,
+        192,
+        176,
+        225,
+        166,
+        218
+      ],
+      "accounts": [
+        {
+          "name": "config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  108,
+                  111,
+                  110,
+                  121
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "authority",
+          "signer": true,
+          "relations": [
+            "config"
+          ]
+        }
+      ],
+      "args": [
+        {
+          "name": "paused",
+          "type": "bool"
+        }
+      ]
+    },
+    {
+      "name": "settle_forager",
+      "discriminator": [
+        14,
+        223,
+        202,
+        98,
+        25,
+        124,
+        143,
+        71
+      ],
+      "accounts": [
+        {
+          "name": "config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  108,
+                  111,
+                  110,
+                  121
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "forager",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  102,
+                  111,
+                  114,
+                  97,
+                  103,
+                  101,
+                  114
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "forager.operator",
+                "account": "ForagerState"
+              },
+              {
+                "kind": "arg",
+                "path": "forager_id"
+              }
+            ]
+          }
+        },
+        {
+          "name": "forager_vault",
+          "docs": [
+            "The forager's isolated sub-account. Holds bond plus principal."
+          ],
+          "writable": true,
+          "relations": [
+            "forager"
+          ]
+        },
+        {
+          "name": "brood",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  98,
+                  114,
+                  111,
+                  111,
+                  100
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "vault_base",
+          "writable": true,
+          "relations": [
+            "brood"
+          ]
+        },
+        {
+          "name": "cache",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  97,
+                  99,
+                  104,
+                  101
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "cache_vault",
+          "writable": true,
+          "relations": [
+            "cache"
+          ]
+        },
+        {
+          "name": "trail_board",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  116,
+                  114,
+                  97,
+                  105,
+                  108,
+                  95,
+                  98,
+                  111,
+                  97,
+                  114,
+                  100
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "base_mint",
+          "relations": [
+            "config"
+          ]
+        },
+        {
+          "name": "token_program"
+        },
+        {
+          "name": "cranker",
+          "docs": [
+            "Permissionless crank."
+          ],
+          "signer": true
+        }
+      ],
+      "args": [
+        {
+          "name": "forager_id",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "slash_forager",
+      "discriminator": [
+        167,
+        237,
+        169,
+        187,
+        227,
+        184,
+        35,
+        225
+      ],
+      "accounts": [
+        {
+          "name": "authority",
+          "signer": true,
+          "relations": [
+            "config"
+          ]
+        },
+        {
+          "name": "config",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  108,
+                  111,
+                  110,
+                  121
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "operator",
+          "docs": [
+            "forager record and by the forager PDA seeds below; no data is read from",
+            "this account and nothing is transferred to it."
+          ],
+          "relations": [
+            "forager"
+          ]
+        },
+        {
+          "name": "forager",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  102,
+                  111,
+                  114,
+                  97,
+                  103,
+                  101,
+                  114
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "operator"
+              },
+              {
+                "kind": "arg",
+                "path": "forager_id"
+              }
+            ]
+          }
+        },
+        {
+          "name": "cache",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  97,
+                  99,
+                  104,
+                  101
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "forager_vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  102,
+                  111,
+                  114,
+                  97,
+                  103,
+                  101,
+                  114,
+                  95,
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "forager"
+              }
+            ]
+          },
+          "relations": [
+            "forager"
+          ]
+        },
+        {
+          "name": "cache_vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  97,
+                  99,
+                  104,
+                  101,
+                  95,
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              }
+            ]
+          },
+          "relations": [
+            "cache"
+          ]
+        },
+        {
+          "name": "incinerator_vault",
+          "docs": [
+            "Locked sink. This program has no instruction that moves tokens out of",
+            "it, which is the whole mechanism: what lands here is unrecoverable."
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  105,
+                  110,
+                  99,
+                  105,
+                  110,
+                  101,
+                  114,
+                  97,
+                  116,
+                  111,
+                  114
+                ]
+              }
+            ]
+          },
+          "relations": [
+            "cache"
+          ]
+        },
+        {
+          "name": "base_mint",
+          "relations": [
+            "config"
+          ]
+        },
+        {
+          "name": "token_program"
+        }
+      ],
+      "args": [
+        {
+          "name": "forager_id",
+          "type": "u64"
+        },
+        {
+          "name": "reason_code",
+          "type": "u8"
+        }
+      ]
+    },
+    {
+      "name": "top_up_bond",
+      "discriminator": [
+        110,
+        37,
+        8,
+        119,
+        210,
+        231,
+        202,
+        197
+      ],
+      "accounts": [
+        {
+          "name": "operator",
+          "signer": true,
+          "relations": [
+            "forager"
+          ]
+        },
+        {
+          "name": "forager",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  102,
+                  111,
+                  114,
+                  97,
+                  103,
+                  101,
+                  114
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "operator"
+              },
+              {
+                "kind": "arg",
+                "path": "forager_id"
+              }
+            ]
+          }
+        },
+        {
+          "name": "base_mint"
+        },
+        {
+          "name": "forager_vault",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  102,
+                  111,
+                  114,
+                  97,
+                  103,
+                  101,
+                  114,
+                  95,
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "forager"
+              }
+            ]
+          }
+        },
+        {
+          "name": "operator_token_account",
+          "writable": true
+        },
+        {
+          "name": "token_program"
+        }
+      ],
+      "args": [
+        {
+          "name": "forager_id",
+          "type": "u64"
+        },
+        {
+          "name": "amount",
+          "type": "u64"
+        }
+      ]
+    },
+    {
+      "name": "update_config",
+      "discriminator": [
+        29,
+        158,
+        252,
+        191,
+        10,
+        83,
+        219,
+        99
+      ],
+      "accounts": [
+        {
+          "name": "config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  108,
+                  111,
+                  110,
+                  121
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "authority",
+          "signer": true,
+          "relations": [
+            "config"
+          ]
+        }
+      ],
+      "args": [
+        {
+          "name": "patch",
+          "type": {
+            "defined": {
+              "name": "ConfigPatch"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "withdraw",
+      "discriminator": [
+        183,
+        18,
+        70,
+        156,
+        148,
+        109,
+        161,
+        34
+      ],
+      "accounts": [
+        {
+          "name": "depositor",
+          "signer": true
+        },
+        {
+          "name": "base_mint",
+          "relations": [
+            "brood"
+          ]
+        },
+        {
+          "name": "brood",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  98,
+                  114,
+                  111,
+                  111,
+                  100
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "position",
+          "docs": [
+            "The seed derivation binds this position to the signer, which is the same",
+            "guarantee `has_one = owner` gives; the stored owner is compared as well",
+            "so a position can never be operated by anyone but its holder.",
+            "",
+            "The position is deliberately NOT closed when its balance reaches zero.",
+            "A `close` constraint is unconditional -- Anchor would close the account",
+            "at the end of every withdrawal, partial ones included, destroying a",
+            "still-positive share balance along with it. Closing only on a full exit",
+            "would mean a conditional close in the handler, which buys back a small",
+            "rent deposit in exchange for a re-creation charge on the next deposit",
+            "and one more failure mode. Leaving the account alive at zero shares is",
+            "cheaper for anyone who re-deposits and keeps an honest, readable record",
+            "of a zero balance."
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  111,
+                  115,
+                  105,
+                  116,
+                  105,
+                  111,
+                  110
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "depositor"
+              }
+            ]
+          }
+        },
+        {
+          "name": "vault_base",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  98,
+                  114,
+                  111,
+                  111,
+                  100,
+                  95,
+                  118,
+                  97,
+                  117,
+                  108,
+                  116
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "depositor_ata",
+          "writable": true
+        },
+        {
+          "name": "token_program"
+        }
+      ],
+      "args": [
+        {
+          "name": "shares",
+          "type": "u128"
+        }
+      ]
+    }
+  ],
+  "accounts": [
+    {
+      "name": "BroodVaultState",
+      "discriminator": [
+        212,
+        157,
+        115,
+        31,
+        73,
+        69,
+        187,
+        64
+      ]
+    },
+    {
+      "name": "ColonyConfig",
+      "discriminator": [
+        56,
+        142,
+        196,
+        70,
+        167,
+        9,
+        31,
+        124
+      ]
+    },
+    {
+      "name": "DepositorPosition",
+      "discriminator": [
+        27,
+        17,
+        217,
+        253,
+        51,
+        126,
+        101,
+        78
+      ]
+    },
+    {
+      "name": "ForagerState",
+      "discriminator": [
+        33,
+        166,
+        88,
+        182,
+        122,
+        76,
+        232,
+        52
+      ]
+    },
+    {
+      "name": "RedemptionRequest",
+      "discriminator": [
+        117,
+        157,
+        214,
+        214,
+        64,
+        160,
+        31,
+        58
+      ]
+    },
+    {
+      "name": "RiskCacheState",
+      "discriminator": [
+        24,
+        12,
+        113,
+        223,
+        110,
+        68,
+        217,
+        226
+      ]
+    },
+    {
+      "name": "TrailBoard",
+      "discriminator": [
+        32,
+        33,
+        62,
+        223,
+        7,
+        72,
+        252,
+        68
+      ]
+    }
+  ],
+  "events": [
+    {
+      "name": "AuthorityAccepted",
+      "discriminator": [
+        166,
+        192,
+        219,
+        188,
+        41,
+        209,
+        195,
+        26
+      ]
+    },
+    {
+      "name": "AuthorityProposed",
+      "discriminator": [
+        244,
+        117,
+        94,
+        112,
+        53,
+        151,
+        35,
+        89
+      ]
+    },
+    {
+      "name": "BondToppedUp",
+      "discriminator": [
+        182,
+        139,
+        47,
+        228,
+        13,
+        187,
+        220,
+        146
+      ]
+    },
+    {
+      "name": "BroodInitialized",
+      "discriminator": [
+        154,
+        184,
+        172,
+        157,
+        31,
+        58,
+        11,
+        152
+      ]
+    },
+    {
+      "name": "CacheAccrued",
+      "discriminator": [
+        58,
+        185,
+        138,
+        204,
+        122,
+        232,
+        210,
+        253
+      ]
+    },
+    {
+      "name": "CacheFunded",
+      "discriminator": [
+        79,
+        193,
+        128,
+        19,
+        61,
+        57,
+        139,
+        111
+      ]
+    },
+    {
+      "name": "ColonyInitialized",
+      "discriminator": [
+        231,
+        234,
+        110,
+        175,
+        137,
+        225,
+        179,
+        34
+      ]
+    },
+    {
+      "name": "ConfigUpdated",
+      "discriminator": [
+        40,
+        241,
+        230,
+        122,
+        11,
+        19,
+        198,
+        194
+      ]
+    },
+    {
+      "name": "Deposited",
+      "discriminator": [
+        111,
+        141,
+        26,
+        45,
+        161,
+        35,
+        100,
+        57
+      ]
+    },
+    {
+      "name": "ForagerDemoted",
+      "discriminator": [
+        230,
+        138,
+        96,
+        37,
+        244,
+        145,
+        227,
+        44
+      ]
+    },
+    {
+      "name": "ForagerPromoted",
+      "discriminator": [
+        186,
+        121,
+        162,
+        129,
+        30,
+        27,
+        53,
+        35
+      ]
+    },
+    {
+      "name": "ForagerRebalanced",
+      "discriminator": [
+        225,
+        64,
+        243,
+        255,
+        32,
+        176,
+        173,
+        188
+      ]
+    },
+    {
+      "name": "ForagerRegistered",
+      "discriminator": [
+        91,
+        146,
+        60,
+        163,
+        31,
+        108,
+        120,
+        148
+      ]
+    },
+    {
+      "name": "ForagerRetired",
+      "discriminator": [
+        198,
+        36,
+        3,
+        31,
+        65,
+        88,
+        118,
+        35
+      ]
+    },
+    {
+      "name": "ForagerSettled",
+      "discriminator": [
+        171,
+        58,
+        88,
+        164,
+        132,
+        215,
+        61,
+        80
+      ]
+    },
+    {
+      "name": "ForagerSlashed",
+      "discriminator": [
+        125,
+        40,
+        126,
+        241,
+        170,
+        207,
+        80,
+        85
+      ]
+    },
+    {
+      "name": "ForagerVaultOpened",
+      "discriminator": [
+        116,
+        12,
+        171,
+        231,
+        129,
+        1,
+        238,
+        125
+      ]
+    },
+    {
+      "name": "LossCovered",
+      "discriminator": [
+        185,
+        52,
+        233,
+        55,
+        164,
+        234,
+        139,
+        131
+      ]
+    },
+    {
+      "name": "PausedSet",
+      "discriminator": [
+        171,
+        125,
+        127,
+        156,
+        233,
+        81,
+        68,
+        66
+      ]
+    },
+    {
+      "name": "RedemptionFulfilled",
+      "discriminator": [
+        73,
+        134,
+        70,
+        2,
+        131,
+        17,
+        134,
+        141
+      ]
+    },
+    {
+      "name": "RedemptionRequested",
+      "discriminator": [
+        245,
+        155,
+        98,
+        131,
+        210,
+        25,
+        137,
+        146
+      ]
+    },
+    {
+      "name": "RiskCacheInitialized",
+      "discriminator": [
+        78,
+        60,
+        214,
+        163,
+        21,
+        109,
+        56,
+        181
+      ]
+    },
+    {
+      "name": "ScoutFunded",
+      "discriminator": [
+        30,
+        193,
+        133,
+        152,
+        142,
+        78,
+        163,
+        174
+      ]
+    },
+    {
+      "name": "SettlementBegan",
+      "discriminator": [
+        197,
+        131,
+        198,
+        160,
+        8,
+        26,
+        156,
+        150
+      ]
+    },
+    {
+      "name": "SettlementFinalized",
+      "discriminator": [
+        95,
+        186,
+        111,
+        179,
+        117,
+        162,
+        152,
+        217
+      ]
+    },
+    {
+      "name": "Withdrawn",
+      "discriminator": [
+        20,
+        89,
+        223,
+        198,
+        194,
+        124,
+        219,
+        13
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "code": 6000,
+      "name": "Overflow",
+      "msg": "Arithmetic overflow"
+    },
+    {
+      "code": 6001,
+      "name": "ParamOutOfRange",
+      "msg": "Parameter outside the published range"
+    },
+    {
+      "code": 6002,
+      "name": "Paused",
+      "msg": "Colony is paused"
+    },
+    {
+      "code": 6003,
+      "name": "WrongPhase",
+      "msg": "Wrong settlement phase for this instruction"
+    },
+    {
+      "code": 6004,
+      "name": "EpochNotOver",
+      "msg": "Epoch has not ended yet"
+    },
+    {
+      "code": 6005,
+      "name": "AlreadySettledThisEpoch",
+      "msg": "Forager already settled this epoch"
+    },
+    {
+      "code": 6006,
+      "name": "SettlementIncomplete",
+      "msg": "Not every active forager has settled yet"
+    },
+    {
+      "code": 6007,
+      "name": "NotSettling",
+      "msg": "Colony is not settling"
+    },
+    {
+      "code": 6008,
+      "name": "InsufficientIdleLiquidity",
+      "msg": "Not enough idle liquidity; use request_redemption"
+    },
+    {
+      "code": 6009,
+      "name": "BelowMinBond",
+      "msg": "Bond is below the configured minimum"
+    },
+    {
+      "code": 6010,
+      "name": "BelowMinimumDeposit",
+      "msg": "Deposit is below the configured minimum"
+    },
+    {
+      "code": 6011,
+      "name": "ForagerNotScout",
+      "msg": "Forager is not a scout"
+    },
+    {
+      "code": 6012,
+      "name": "ForagerNotActive",
+      "msg": "Forager is not active"
+    },
+    {
+      "code": 6013,
+      "name": "ForagerInactive",
+      "msg": "Forager is retired or slashed"
+    },
+    {
+      "code": 6014,
+      "name": "NotAuthority",
+      "msg": "Signer is not the colony authority"
+    },
+    {
+      "code": 6015,
+      "name": "NoPendingAuthority",
+      "msg": "No pending authority to accept"
+    },
+    {
+      "code": 6016,
+      "name": "PromotionCriteriaNotMet",
+      "msg": "Promotion criteria not met"
+    },
+    {
+      "code": 6017,
+      "name": "RegistrationFrozenDuringSettlement",
+      "msg": "Registration and retirement are frozen during settlement"
+    },
+    {
+      "code": 6018,
+      "name": "SlashTooLarge",
+      "msg": "Slash amount exceeds the posted bond"
+    },
+    {
+      "code": 6019,
+      "name": "NotSlashable",
+      "msg": "Forager is not slashable under any configured condition"
+    },
+    {
+      "code": 6020,
+      "name": "RedemptionNotReady",
+      "msg": "Redemption request is not ready to be fulfilled"
+    },
+    {
+      "code": 6021,
+      "name": "RedemptionAlreadyFulfilled",
+      "msg": "Redemption request has already been fully paid"
+    },
+    {
+      "code": 6022,
+      "name": "ZeroAmount",
+      "msg": "Amount must be greater than zero"
+    },
+    {
+      "code": 6023,
+      "name": "InsufficientShares",
+      "msg": "Insufficient shares in this position"
+    },
+    {
+      "code": 6024,
+      "name": "BaseMintMismatch",
+      "msg": "Mint does not match the colony base mint"
+    },
+    {
+      "code": 6025,
+      "name": "VaultMismatch",
+      "msg": "Token account owner or mint does not match the expected vault"
+    },
+    {
+      "code": 6026,
+      "name": "ForagerStillDeployed",
+      "msg": "Forager still holds principal; settle and unwind before retiring"
+    },
+    {
+      "code": 6027,
+      "name": "ScoutPoolExhausted",
+      "msg": "Scout pool is exhausted for this epoch"
+    },
+    {
+      "code": 6028,
+      "name": "ScoutTicketAlreadyDrawn",
+      "msg": "Forager has already drawn a scout ticket this epoch"
+    },
+    {
+      "code": 6029,
+      "name": "WithinNoTradeBand",
+      "msg": "Rebalance skipped: target is inside the no-trade band"
+    },
+    {
+      "code": 6030,
+      "name": "TurnoverCapReached",
+      "msg": "Per-epoch turnover cap reached"
+    },
+    {
+      "code": 6031,
+      "name": "BondCapacityExceeded",
+      "msg": "Allocation exceeds what the posted bond supports"
+    },
+    {
+      "code": 6032,
+      "name": "NoActiveForagers",
+      "msg": "Colony must have at least one active forager"
+    }
+  ],
+  "types": [
+    {
+      "name": "AuthorityAccepted",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "previous",
+            "type": "pubkey"
+          },
+          {
+            "name": "current",
+            "type": "pubkey"
+          }
+        ]
+      }
+    },
+    {
+      "name": "AuthorityProposed",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "current",
+            "type": "pubkey"
+          },
+          {
+            "name": "pending",
+            "type": "pubkey"
+          }
+        ]
+      }
+    },
+    {
+      "name": "BondToppedUp",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "forager",
+            "type": "pubkey"
+          },
+          {
+            "name": "amount",
+            "type": "u64"
+          },
+          {
+            "name": "bond",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "BroodInitialized",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "base_mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "vault_base",
+            "type": "pubkey"
+          }
+        ]
+      }
+    },
+    {
+      "name": "BroodVaultState",
+      "docs": [
+        "Brood Vault share accounting. Singleton, seed `[b\"brood\"]`.",
+        "",
+        "`nav = idle_base + outstanding_principal`. Both are accounting counters that",
+        "only move through credited deposits, withdrawals and settlement, never by",
+        "reading a live token balance. That is what makes an unsolicited transfer",
+        "into a vault account unable to move the share price."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "base_mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "vault_base",
+            "type": "pubkey"
+          },
+          {
+            "name": "total_shares",
+            "type": "u128"
+          },
+          {
+            "name": "pending_redemption_shares",
+            "type": "u128"
+          },
+          {
+            "name": "idle_base",
+            "type": "u64"
+          },
+          {
+            "name": "outstanding_principal",
+            "type": "u64"
+          },
+          {
+            "name": "next_redemption_id",
+            "type": "u64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          },
+          {
+            "name": "vault_bump",
+            "type": "u8"
+          },
+          {
+            "name": "_padding",
+            "type": {
+              "array": [
+                "u8",
+                6
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "CacheAccrued",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "epoch",
+            "type": "u64"
+          },
+          {
+            "name": "amount",
+            "type": "u64"
+          },
+          {
+            "name": "cache_balance",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "CacheFunded",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "funder",
+            "type": "pubkey"
+          },
+          {
+            "name": "amount",
+            "type": "u64"
+          },
+          {
+            "name": "cache_balance",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ColonyConfig",
+      "docs": [
+        "Global colony configuration and epoch state. Singleton, seed `[b\"colony\"]`."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "authority",
+            "type": "pubkey"
+          },
+          {
+            "name": "pending_authority",
+            "type": "pubkey"
+          },
+          {
+            "name": "base_mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "epoch",
+            "type": "u64"
+          },
+          {
+            "name": "settling_epoch",
+            "type": "u64"
+          },
+          {
+            "name": "epoch_end_ts",
+            "type": "i64"
+          },
+          {
+            "name": "epoch_duration_secs",
+            "type": "i64"
+          },
+          {
+            "name": "pheromone_sum",
+            "docs": [
+              "Normalization denominator confirmed at the end of the last settlement."
+            ],
+            "type": "u128"
+          },
+          {
+            "name": "pheromone_sum_acc",
+            "docs": [
+              "Running sum during a settlement; becomes `pheromone_sum` at finalize."
+            ],
+            "type": "u128"
+          },
+          {
+            "name": "alloc_rest_sum",
+            "docs": [
+              "Total pheromone of the foragers left UNCAPPED by the solved",
+              "water-filling level. Paired with `alloc_remaining_bps`, this defines",
+              "every uncapped weight as `remaining_bps * tau / rest_sum` without ever",
+              "forming a quotient, so no division rounding biases the targets."
+            ],
+            "type": "u128"
+          },
+          {
+            "name": "allocatable_pool",
+            "type": "u64"
+          },
+          {
+            "name": "scout_pool",
+            "type": "u64"
+          },
+          {
+            "name": "min_bond",
+            "type": "u64"
+          },
+          {
+            "name": "deposit_scale_q",
+            "type": "u64"
+          },
+          {
+            "name": "scout_ticket_base_units",
+            "type": "u64"
+          },
+          {
+            "name": "promote_tau_seed_cap",
+            "type": "u64"
+          },
+          {
+            "name": "epoch_turnover_used",
+            "docs": [
+              "Capital moved so far this epoch, against the turnover cap."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "settleable_forager_count",
+            "docs": [
+              "Foragers that must be settled this epoch: every registered forager that",
+              "is not retired, whatever its lifecycle state. This is the population the",
+              "crank counts against, and it is frozen for the duration of a settlement",
+              "so `settled_count == settleable_forager_count` is a sound completion",
+              "test even when a forager is demoted mid-crank."
+            ],
+            "type": "u32"
+          },
+          {
+            "name": "active_forager_count",
+            "docs": [
+              "Foragers that were Active at the last finalize. Only these are",
+              "normalized into weights; it is a strictly smaller population than",
+              "`settleable_forager_count`."
+            ],
+            "type": "u32"
+          },
+          {
+            "name": "active_count_acc",
+            "docs": [
+              "Running count of Active foragers during a settlement."
+            ],
+            "type": "u32"
+          },
+          {
+            "name": "settled_count",
+            "type": "u32"
+          },
+          {
+            "name": "promote_perf_bar_bps",
+            "type": "i32"
+          },
+          {
+            "name": "rho_bps",
+            "type": "u16"
+          },
+          {
+            "name": "perf_norm_s_bps",
+            "type": "u16"
+          },
+          {
+            "name": "risk_aversion_bps",
+            "type": "u16"
+          },
+          {
+            "name": "w_max_bps",
+            "type": "u16"
+          },
+          {
+            "name": "w_drop_bps",
+            "type": "u16"
+          },
+          {
+            "name": "scout_budget_bps",
+            "type": "u16"
+          },
+          {
+            "name": "reband_band_bps",
+            "type": "u16"
+          },
+          {
+            "name": "turnover_cap_bps",
+            "type": "u16"
+          },
+          {
+            "name": "promote_min_trades",
+            "type": "u16"
+          },
+          {
+            "name": "bond_ratio_bps",
+            "type": "u16"
+          },
+          {
+            "name": "bond_haircut_bps",
+            "type": "u16"
+          },
+          {
+            "name": "dd_probation_bps",
+            "type": "u16"
+          },
+          {
+            "name": "dd_slash_bps",
+            "type": "u16"
+          },
+          {
+            "name": "epoch_loss_limit_bps",
+            "type": "u16"
+          },
+          {
+            "name": "slash_burn_bps",
+            "type": "u16"
+          },
+          {
+            "name": "max_single_asset_bps",
+            "type": "u16"
+          },
+          {
+            "name": "cache_accrual_bps",
+            "type": "u16"
+          },
+          {
+            "name": "cache_reserve_target_bps",
+            "type": "u16"
+          },
+          {
+            "name": "alloc_remaining_bps",
+            "docs": [
+              "Share of the pool left for uncapped foragers at the solved level:",
+              "`BPS_DENOM - capped_count * effective_w_max`."
+            ],
+            "type": "u16"
+          },
+          {
+            "name": "promote_min_epochs",
+            "type": "u8"
+          },
+          {
+            "name": "probation_grace_epochs",
+            "type": "u8"
+          },
+          {
+            "name": "nonresponse_timeout_epochs",
+            "type": "u8"
+          },
+          {
+            "name": "max_leverage_x",
+            "docs": [
+              "Fixed at 1 by policy. Present so the zero-leverage rule is auditable."
+            ],
+            "type": "u8"
+          },
+          {
+            "name": "epoch_phase",
+            "type": "u8"
+          },
+          {
+            "name": "paused",
+            "type": "bool"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          },
+          {
+            "name": "_padding",
+            "type": {
+              "array": [
+                "u8",
+                7
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "ColonyInitialized",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "authority",
+            "type": "pubkey"
+          },
+          {
+            "name": "base_mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "epoch_duration_secs",
+            "type": "i64"
+          },
+          {
+            "name": "epoch_end_ts",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ConfigPatch",
+      "docs": [
+        "A partial edit to the live configuration.",
+        "",
+        "`None` means \"leave this parameter where it is\", which is not the same as",
+        "zero. Sending a full struct of concrete values on every edit would make a",
+        "forgotten field silently reset a parameter, so the patch carries only what",
+        "the caller actually intends to move."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "epoch_duration_secs",
+            "type": {
+              "option": "i64"
+            }
+          },
+          {
+            "name": "rho_bps",
+            "type": {
+              "option": "u16"
+            }
+          },
+          {
+            "name": "deposit_scale_q",
+            "type": {
+              "option": "u64"
+            }
+          },
+          {
+            "name": "perf_norm_s_bps",
+            "type": {
+              "option": "u16"
+            }
+          },
+          {
+            "name": "risk_aversion_bps",
+            "type": {
+              "option": "u16"
+            }
+          },
+          {
+            "name": "w_max_bps",
+            "type": {
+              "option": "u16"
+            }
+          },
+          {
+            "name": "w_drop_bps",
+            "type": {
+              "option": "u16"
+            }
+          },
+          {
+            "name": "scout_budget_bps",
+            "type": {
+              "option": "u16"
+            }
+          },
+          {
+            "name": "reband_band_bps",
+            "type": {
+              "option": "u16"
+            }
+          },
+          {
+            "name": "turnover_cap_bps",
+            "type": {
+              "option": "u16"
+            }
+          },
+          {
+            "name": "promote_min_epochs",
+            "type": {
+              "option": "u8"
+            }
+          },
+          {
+            "name": "promote_min_trades",
+            "type": {
+              "option": "u16"
+            }
+          },
+          {
+            "name": "promote_perf_bar_bps",
+            "type": {
+              "option": "i32"
+            }
+          },
+          {
+            "name": "scout_ticket_base_units",
+            "type": {
+              "option": "u64"
+            }
+          },
+          {
+            "name": "promote_tau_seed_cap",
+            "type": {
+              "option": "u64"
+            }
+          },
+          {
+            "name": "min_bond",
+            "type": {
+              "option": "u64"
+            }
+          },
+          {
+            "name": "bond_ratio_bps",
+            "type": {
+              "option": "u16"
+            }
+          },
+          {
+            "name": "bond_haircut_bps",
+            "type": {
+              "option": "u16"
+            }
+          },
+          {
+            "name": "dd_probation_bps",
+            "type": {
+              "option": "u16"
+            }
+          },
+          {
+            "name": "dd_slash_bps",
+            "type": {
+              "option": "u16"
+            }
+          },
+          {
+            "name": "epoch_loss_limit_bps",
+            "type": {
+              "option": "u16"
+            }
+          },
+          {
+            "name": "probation_grace_epochs",
+            "type": {
+              "option": "u8"
+            }
+          },
+          {
+            "name": "nonresponse_timeout_epochs",
+            "type": {
+              "option": "u8"
+            }
+          },
+          {
+            "name": "slash_burn_bps",
+            "type": {
+              "option": "u16"
+            }
+          },
+          {
+            "name": "max_single_asset_bps",
+            "type": {
+              "option": "u16"
+            }
+          },
+          {
+            "name": "cache_accrual_bps",
+            "type": {
+              "option": "u16"
+            }
+          },
+          {
+            "name": "cache_reserve_target_bps",
+            "type": {
+              "option": "u16"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "ConfigUpdated",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "authority",
+            "type": "pubkey"
+          },
+          {
+            "name": "epoch",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Deposited",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "depositor",
+            "type": "pubkey"
+          },
+          {
+            "name": "assets",
+            "type": "u64"
+          },
+          {
+            "name": "shares",
+            "type": "u128"
+          },
+          {
+            "name": "nav_after",
+            "type": "u64"
+          },
+          {
+            "name": "total_shares_after",
+            "type": "u128"
+          }
+        ]
+      }
+    },
+    {
+      "name": "DepositorPosition",
+      "docs": [
+        "A depositor's share balance. Seed `[b\"position\", depositor]`."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "owner",
+            "type": "pubkey"
+          },
+          {
+            "name": "shares",
+            "type": "u128"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          },
+          {
+            "name": "_padding",
+            "type": {
+              "array": [
+                "u8",
+                7
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "ForagerDemoted",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "forager",
+            "type": "pubkey"
+          },
+          {
+            "name": "epoch",
+            "type": "u64"
+          },
+          {
+            "name": "weight_bps",
+            "type": "u16"
+          },
+          {
+            "name": "returned_principal",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ForagerPromoted",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "forager",
+            "type": "pubkey"
+          },
+          {
+            "name": "epoch",
+            "type": "u64"
+          },
+          {
+            "name": "seeded_pheromone",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ForagerRebalanced",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "forager",
+            "type": "pubkey"
+          },
+          {
+            "name": "epoch",
+            "type": "u64"
+          },
+          {
+            "name": "target",
+            "type": "u64"
+          },
+          {
+            "name": "principal_before",
+            "type": "u64"
+          },
+          {
+            "name": "principal_after",
+            "type": "u64"
+          },
+          {
+            "name": "weight_bps",
+            "type": "u16"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ForagerRegistered",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "forager",
+            "type": "pubkey"
+          },
+          {
+            "name": "operator",
+            "type": "pubkey"
+          },
+          {
+            "name": "forager_id",
+            "type": "u64"
+          },
+          {
+            "name": "bond",
+            "type": "u64"
+          },
+          {
+            "name": "registered_epoch",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ForagerRetired",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "forager",
+            "type": "pubkey"
+          },
+          {
+            "name": "operator",
+            "type": "pubkey"
+          },
+          {
+            "name": "returned_bond",
+            "type": "u64"
+          },
+          {
+            "name": "swept_base",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ForagerSettled",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "forager",
+            "type": "pubkey"
+          },
+          {
+            "name": "settling_epoch",
+            "type": "u64"
+          },
+          {
+            "name": "realized_pnl_epoch",
+            "type": "i64"
+          },
+          {
+            "name": "return_bps",
+            "type": "i64"
+          },
+          {
+            "name": "perf_bps",
+            "type": "i64"
+          },
+          {
+            "name": "deposit_fp6",
+            "type": "i64"
+          },
+          {
+            "name": "pheromone",
+            "type": "u64"
+          },
+          {
+            "name": "principal_after",
+            "type": "u64"
+          },
+          {
+            "name": "drawdown_bps",
+            "type": "u16"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ForagerSlashed",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "forager",
+            "type": "pubkey"
+          },
+          {
+            "name": "operator",
+            "type": "pubkey"
+          },
+          {
+            "name": "reason_code",
+            "type": "u8"
+          },
+          {
+            "name": "slashed",
+            "type": "u64"
+          },
+          {
+            "name": "burned",
+            "type": "u64"
+          },
+          {
+            "name": "to_cache",
+            "type": "u64"
+          },
+          {
+            "name": "bond_after",
+            "type": "u64"
+          },
+          {
+            "name": "slash_count",
+            "type": "u16"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ForagerState",
+      "docs": [
+        "One forager: an operator-run trail the colony can send capital down.",
+        "Seed `[b\"forager\", operator, forager_id:u64 LE]`."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "operator",
+            "type": "pubkey"
+          },
+          {
+            "name": "forager_vault",
+            "type": "pubkey"
+          },
+          {
+            "name": "forager_id",
+            "type": "u64"
+          },
+          {
+            "name": "bond",
+            "docs": [
+              "Posted bond. Held inside `forager_vault` but accounted separately, so",
+              "settlement can subtract it before measuring performance."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "principal",
+            "docs": [
+              "Colony capital currently deployed to this forager."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "pheromone",
+            "docs": [
+              "Trail strength, FP6."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "high_water",
+            "docs": [
+              "Highest principal-relative equity seen, for drawdown."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "last_settled_epoch",
+            "type": "u64"
+          },
+          {
+            "name": "registered_epoch",
+            "type": "u64"
+          },
+          {
+            "name": "realized_epochs",
+            "docs": [
+              "Epochs this forager closed with a non-zero realized result. Named for",
+              "what it actually counts: the program cannot observe individual trades,",
+              "only settled epoch outcomes, so it does not claim to be a trade count."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "scout_epochs",
+            "type": "u64"
+          },
+          {
+            "name": "last_scout_epoch",
+            "type": "u64"
+          },
+          {
+            "name": "realized_pnl_cumulative",
+            "type": "i64"
+          },
+          {
+            "name": "scout_perf_cum_bps",
+            "docs": [
+              "Cumulative risk-adjusted realized performance, for the promotion bar."
+            ],
+            "type": "i64"
+          },
+          {
+            "name": "probation_until_epoch",
+            "type": "u64"
+          },
+          {
+            "name": "last_heartbeat_ts",
+            "type": "i64"
+          },
+          {
+            "name": "strategy_meta",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "max_drawdown_bps",
+            "type": "u16"
+          },
+          {
+            "name": "current_drawdown_bps",
+            "type": "u16"
+          },
+          {
+            "name": "slash_count",
+            "type": "u16"
+          },
+          {
+            "name": "status",
+            "type": "u8"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          },
+          {
+            "name": "vault_bump",
+            "type": "u8"
+          },
+          {
+            "name": "_padding",
+            "type": {
+              "array": [
+                "u8",
+                7
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "ForagerVaultOpened",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "forager",
+            "type": "pubkey"
+          },
+          {
+            "name": "forager_vault",
+            "type": "pubkey"
+          }
+        ]
+      }
+    },
+    {
+      "name": "InitColonyParams",
+      "docs": [
+        "Every parameter an authority may set at genesis.",
+        "",
+        "What is deliberately absent is as much a part of the contract as what is",
+        "present. `max_leverage_x` is pinned to `MAX_LEVERAGE_X` by the program and",
+        "is not settable here; neither are the fixed-point scale, the pheromone floor",
+        "and ceiling, the minimum deposit, or any epoch counter. An authority tunes",
+        "the colony, it does not redefine it."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "epoch_duration_secs",
+            "type": "i64"
+          },
+          {
+            "name": "rho_bps",
+            "type": "u16"
+          },
+          {
+            "name": "deposit_scale_q",
+            "type": "u64"
+          },
+          {
+            "name": "perf_norm_s_bps",
+            "type": "u16"
+          },
+          {
+            "name": "risk_aversion_bps",
+            "type": "u16"
+          },
+          {
+            "name": "w_max_bps",
+            "type": "u16"
+          },
+          {
+            "name": "w_drop_bps",
+            "type": "u16"
+          },
+          {
+            "name": "scout_budget_bps",
+            "type": "u16"
+          },
+          {
+            "name": "reband_band_bps",
+            "type": "u16"
+          },
+          {
+            "name": "turnover_cap_bps",
+            "type": "u16"
+          },
+          {
+            "name": "promote_min_epochs",
+            "type": "u8"
+          },
+          {
+            "name": "promote_min_trades",
+            "type": "u16"
+          },
+          {
+            "name": "promote_perf_bar_bps",
+            "type": "i32"
+          },
+          {
+            "name": "scout_ticket_base_units",
+            "type": "u64"
+          },
+          {
+            "name": "promote_tau_seed_cap",
+            "type": "u64"
+          },
+          {
+            "name": "min_bond",
+            "type": "u64"
+          },
+          {
+            "name": "bond_ratio_bps",
+            "type": "u16"
+          },
+          {
+            "name": "bond_haircut_bps",
+            "type": "u16"
+          },
+          {
+            "name": "dd_probation_bps",
+            "type": "u16"
+          },
+          {
+            "name": "dd_slash_bps",
+            "type": "u16"
+          },
+          {
+            "name": "epoch_loss_limit_bps",
+            "type": "u16"
+          },
+          {
+            "name": "probation_grace_epochs",
+            "type": "u8"
+          },
+          {
+            "name": "nonresponse_timeout_epochs",
+            "type": "u8"
+          },
+          {
+            "name": "slash_burn_bps",
+            "type": "u16"
+          },
+          {
+            "name": "max_single_asset_bps",
+            "type": "u16"
+          },
+          {
+            "name": "cache_accrual_bps",
+            "type": "u16"
+          },
+          {
+            "name": "cache_reserve_target_bps",
+            "type": "u16"
+          }
+        ]
+      }
+    },
+    {
+      "name": "LossCovered",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "forager",
+            "type": "pubkey"
+          },
+          {
+            "name": "loss",
+            "type": "u64"
+          },
+          {
+            "name": "from_bond",
+            "type": "u64"
+          },
+          {
+            "name": "from_cache",
+            "type": "u64"
+          },
+          {
+            "name": "to_depositors",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "PausedSet",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "authority",
+            "type": "pubkey"
+          },
+          {
+            "name": "paused",
+            "type": "bool"
+          }
+        ]
+      }
+    },
+    {
+      "name": "RedemptionFulfilled",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "depositor",
+            "type": "pubkey"
+          },
+          {
+            "name": "request_id",
+            "type": "u64"
+          },
+          {
+            "name": "shares_burned",
+            "type": "u128"
+          },
+          {
+            "name": "assets_paid",
+            "type": "u64"
+          },
+          {
+            "name": "fully_settled",
+            "type": "bool"
+          }
+        ]
+      }
+    },
+    {
+      "name": "RedemptionRequest",
+      "docs": [
+        "A queued redemption. Seed `[b\"redeem\", depositor, request_id:u64 LE]`.",
+        "",
+        "The program cannot force-liquidate capital that is already deployed to a",
+        "forager, so a withdrawal larger than idle liquidity queues here instead of",
+        "promising an immediate payout it cannot honor."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "owner",
+            "type": "pubkey"
+          },
+          {
+            "name": "shares",
+            "type": "u128"
+          },
+          {
+            "name": "request_id",
+            "type": "u64"
+          },
+          {
+            "name": "requested_epoch",
+            "type": "u64"
+          },
+          {
+            "name": "assets_paid",
+            "type": "u64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          },
+          {
+            "name": "_padding",
+            "type": {
+              "array": [
+                "u8",
+                7
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "RedemptionRequested",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "depositor",
+            "type": "pubkey"
+          },
+          {
+            "name": "request_id",
+            "type": "u64"
+          },
+          {
+            "name": "shares",
+            "type": "u128"
+          },
+          {
+            "name": "requested_epoch",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "RiskCacheInitialized",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "cache_vault",
+            "type": "pubkey"
+          },
+          {
+            "name": "incinerator_vault",
+            "type": "pubkey"
+          }
+        ]
+      }
+    },
+    {
+      "name": "RiskCacheState",
+      "docs": [
+        "Insurance cache. Singleton, seed `[b\"cache\"]`."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "cache_vault",
+            "type": "pubkey"
+          },
+          {
+            "name": "incinerator_vault",
+            "docs": [
+              "Locked sink. No instruction ever withdraws from it."
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "balance",
+            "type": "u64"
+          },
+          {
+            "name": "total_covered",
+            "type": "u64"
+          },
+          {
+            "name": "total_burned",
+            "type": "u64"
+          },
+          {
+            "name": "total_accrued",
+            "type": "u64"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          },
+          {
+            "name": "vault_bump",
+            "type": "u8"
+          },
+          {
+            "name": "incinerator_bump",
+            "type": "u8"
+          },
+          {
+            "name": "_padding",
+            "type": {
+              "array": [
+                "u8",
+                5
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "ScoutFunded",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "forager",
+            "type": "pubkey"
+          },
+          {
+            "name": "epoch",
+            "type": "u64"
+          },
+          {
+            "name": "ticket",
+            "type": "u64"
+          },
+          {
+            "name": "scout_pool_remaining",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "SettlementBegan",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "settling_epoch",
+            "type": "u64"
+          },
+          {
+            "name": "active_forager_count",
+            "type": "u32"
+          },
+          {
+            "name": "started_at",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "SettlementFinalized",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "epoch",
+            "type": "u64"
+          },
+          {
+            "name": "pheromone_sum",
+            "type": "u128"
+          },
+          {
+            "name": "alloc_divisor",
+            "type": "u128"
+          },
+          {
+            "name": "allocatable_pool",
+            "type": "u64"
+          },
+          {
+            "name": "scout_pool",
+            "type": "u64"
+          },
+          {
+            "name": "nav",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "TrailBoard",
+      "docs": [
+        "The largest trails seen during the current settlement.",
+        "Singleton, seed `[b\"trail_board\"]`.",
+        "",
+        "Only the largest `floor(1 / w_max)` trails can ever sit at the concentration",
+        "cap, so keeping the top `TOP_TRAILS_LEN` values is enough to solve the",
+        "water-filling level exactly at finalize, without a pass over every forager."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "top",
+            "type": {
+              "array": [
+                "u64",
+                21
+              ]
+            }
+          },
+          {
+            "name": "count",
+            "type": "u8"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          },
+          {
+            "name": "_padding",
+            "type": {
+              "array": [
+                "u8",
+                6
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "Withdrawn",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "depositor",
+            "type": "pubkey"
+          },
+          {
+            "name": "shares",
+            "type": "u128"
+          },
+          {
+            "name": "assets",
+            "type": "u64"
+          },
+          {
+            "name": "nav_after",
+            "type": "u64"
+          },
+          {
+            "name": "total_shares_after",
+            "type": "u128"
+          }
+        ]
+      }
+    }
+  ]
+}
