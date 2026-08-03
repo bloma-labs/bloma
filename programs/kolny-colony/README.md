@@ -44,3 +44,44 @@ and the loss-absorption waterfall below states exactly where the cushion ends.
 Every `LEN` is asserted against the real Borsh-serialized byte count by a unit
 test, because an undersized account fails at runtime rather than at build time.
 
+## PDA seeds
+
+Numeric seed components are **little-endian**. On-chain, the indexer and the
+front end must derive identically or every address silently diverges.
+
+| PDA | Seeds |
+|---|---|
+| `colony_config` | `[b"colony"]` |
+| `brood_vault_state` | `[b"brood"]` |
+| `risk_cache_state` | `[b"cache"]` |
+| `trail_board` | `[b"trail_board"]` |
+| `forager_state` | `[b"forager", operator.key(), forager_id.to_le_bytes()]` |
+| `forager_vault` (token) | `[b"forager_vault", forager_state.key()]` |
+| `vault_base` (token) | `[b"brood_vault"]` |
+| `cache_vault` (token) | `[b"cache_vault"]` |
+| `incinerator_vault` (token) | `[b"incinerator"]` |
+| `depositor_position` | `[b"position", depositor.key()]` |
+| `redemption_request` | `[b"redeem", depositor.key(), request_id.to_le_bytes()]` |
+
+TypeScript:
+
+```ts
+const idBuf = Buffer.alloc(8);
+idBuf.writeBigUInt64LE(BigInt(foragerId));
+const [foragerState] = PublicKey.findProgramAddressSync(
+  [Buffer.from("forager"), operator.toBuffer(), idBuf],
+  PROGRAM_ID,
+);
+```
+
+Python:
+
+```python
+struct.pack("<Q", forager_id)
+```
+
+The four token accounts (`forager_vault`, `vault_base`, `cache_vault`,
+`incinerator_vault`) are SPL Token or Token-2022 accounts owned by their parent
+state PDA. `incinerator_vault` has no withdrawal instruction anywhere in the
+program, which is what makes a transfer into it economically irreversible.
+
