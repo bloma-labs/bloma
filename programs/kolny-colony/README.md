@@ -29,3 +29,18 @@ and its sub-account swept.
 Agent trading loses money sometimes. Deposits are not protected against loss,
 and the loss-absorption waterfall below states exactly where the cushion ends.
 
+## Accounts
+
+| Account | Seeds | LEN | space (`8 + LEN`) |
+|---|---|---|---|
+| `ColonyConfig` | `[b"colony"]` | 304 | 312 |
+| `BroodVaultState` | `[b"brood"]` | 128 | 136 |
+| `RiskCacheState` | `[b"cache"]` | 104 | 112 |
+| `TrailBoard` | `[b"trail_board"]` | 176 | 184 |
+| `ForagerState` | `[b"forager", operator, forager_id]` | 224 | 232 |
+| `DepositorPosition` | `[b"position", depositor]` | 56 | 64 |
+| `RedemptionRequest` | `[b"redeem", depositor, request_id]` | 80 | 88 |
+
+Every `LEN` is asserted against the real Borsh-serialized byte count by a unit
+test, because an undersized account fails at runtime rather than at build time.
+
