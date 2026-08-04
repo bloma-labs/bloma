@@ -85,3 +85,61 @@ The four token accounts (`forager_vault`, `vault_base`, `cache_vault`,
 state PDA. `incinerator_vault` has no withdrawal instruction anywhere in the
 program, which is what makes a transfer into it economically irreversible.
 
+## Instructions
+
+### Colony configuration
+
+| Instruction | Access | Notes |
+|---|---|---|
+| `initialize_colony(params)` | signer becomes authority | Every parameter range-checked |
+| `update_config(patch)` | authority | Per-field `Option`; each checked against the same bounds |
+| `propose_authority(new)` | authority | Two-step transfer, step 1 |
+| `accept_authority()` | pending authority | Two-step transfer, step 2 |
+| `set_paused(bool)` | authority | Blocks deposits, rebalancing and scout funding |
+
+### One-time account creation
+
+Split into small instructions on purpose: a context carrying several `init`
+constraints generates enough stack frame to exceed the 4096-byte limit. A front
+end bundles them into a single transaction, so the user experience is unchanged.
+
+`initialize_brood`, `open_vault_base`, `initialize_risk_cache`,
+`open_cache_vault`, `open_incinerator_vault`, `initialize_trail_board`.
+
+### Forager lifecycle
+
+| Instruction | Access | Notes |
+|---|---|---|
+| `register_forager(id, strategy_meta)` | operator | Record only; starts as Scout with zero bond |
+| `open_forager_vault(id)` | operator | Sub-account; derives from the record, so it comes second |
+| `top_up_bond(id, amount)` | operator | Posts the bond, in base asset |
+| `promote_forager(id)` | permissionless | Criteria are read from chain state, so anyone can crank it |
+| `retire_forager(id)` | operator or authority | Returns bond, sweeps residual base to the vault |
+| `heartbeat(id)` | operator | Liveness, for the non-response slash condition |
+
+### Depositor flows
+
+| Instruction | Access | Notes |
+|---|---|---|
+| `deposit(assets)` | anyone | Shares round down, favoring existing holders |
+| `withdraw(shares)` | holder | Only within idle liquidity; otherwise fails |
+| `request_redemption(shares)` | holder | Queue used when idle liquidity is short |
+| `fulfill_redemption(id)` | permissionless | Partial payouts allowed |
+| `fund_cache(amount)` | anyone | Donate to the insurance cache |
+
+### Epoch settlement
+
+| Instruction | Access | Notes |
+|---|---|---|
+| `begin_settlement()` | permissionless | Only after `epoch_end_ts` |
+| `settle_forager(id)` | permissionless | Idempotent per epoch; takes no performance arguments |
+| `finalize_settlement()` | permissionless | Requires every forager settled |
+| `rebalance_forager(id)` | permissionless | Moves capital toward target |
+
+### Exploration and risk
+
+| Instruction | Access | Notes |
+|---|---|---|
+| `fund_scout(id)` | permissionless | One fixed ticket per scout per epoch |
+| `slash_forager(id, reason)` | authority | Graduated by cause |
+
