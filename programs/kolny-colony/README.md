@@ -221,3 +221,21 @@ Two populations are tracked separately and must not be conflated:
 mid-crank changes the second, never the first, so the completion test stays
 sound.
 
+## NAV, and what it does not include
+
+```
+nav = idle_base + outstanding_principal
+```
+
+Both are **accounting counters**. A live token balance is never read into NAV.
+That is the root defense against the donation inflation attack: tokens sent
+directly to a vault account are simply uncredited and cannot move the share
+price. A virtual share offset and a minimum deposit close the first-depositor
+rounding attack on top of that. Rounding always favors the vault.
+
+Unrealized losses are not in NAV, so share price can be overstated while a
+forager holds an unclosed losing position. This is disclosed rather than
+papered over, and it is why withdrawals are limited to idle liquidity and why
+the redemption queue exists. The program cannot force-liquidate deployed
+capital, so it does not promise immediate liquidity.
+
