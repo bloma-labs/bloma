@@ -143,3 +143,81 @@ end bundles them into a single transaction, so the user experience is unchanged.
 | `fund_scout(id)` | permissionless | One fixed ticket per scout per epoch |
 | `slash_forager(id, reason)` | authority | Graduated by cause |
 
+## How allocation works
+
+### 1. Pheromone
+
+Each epoch, for every forager:
+
+```
+tau' = max(0, (1 - rho) * tau + D)
+D    = Q * tanh(perf / s)
+perf = r - lambda * DD
+```
+
+`r` is the realized net return over the epoch and `DD` the realized drawdown,
+both computed on-chain. The deposit is **bounded** by `Q`, so no single epoch
+-- lucky tail or manipulation attempt -- can dominate a trail, and
+**sign-preserving**, so a loss erodes a trail faster than passive evaporation
+rather than merely failing to reinforce it. `tanh` is evaluated by integer range
+reduction plus an odd Taylor series, accurate to under 1e-6 and reproducible
+bit-for-bit off-chain; see the fixed-point contract below for the exact steps.
+
+The floor is 0 by design: a dead trail has to be able to die. Propping every
+forager up at a minimum weight would fight the entire mechanism.
+
+### 2. The measurement that must not be skipped
+
+A forager's sub-account holds **bond + principal**. Settlement therefore
+computes:
+
+```
+realized = (vault_balance - bond) - principal
+```
+
+Without the bond subtraction, an operator could top up its own bond and have it
+read as trading profit, inflating its trail and pulling colony capital toward
+it. There are dedicated unit tests asserting that a pure bond top-up produces a
+realized result of exactly zero.
+
+### 3. Weights: bounded water-filling
+
+Weights are normalize, then cap, then drop, then renormalize. The capped vector
+
+```
+w_f = min(w_max, tau_f / K)      with   sum(w_f) = 1
+```
+
+has exactly one solution `K`, and that single scalar reproduces the iterative
+"cap, redistribute the excess, repeat" procedure exactly. Solving for `K` is
+what makes each forager's target computable in O(1), which is what makes the
+settlement crank possible at all.
+
+At most `floor(1 / w_max)` foragers can be capped simultaneously, so tracking
+the largest 21 trails during the crank is enough to solve `K` exactly rather
+than approximately. That is what `TrailBoard` is for.
+
+A forager whose weight falls below `w_drop` is demoted to Scout, and its
+pheromone is excluded from the next epoch's normalization sum, which
+redistributes the freed weight among the survivors automatically.
+
+### 4. Settlement is a three-phase crank
+
+N foragers cannot be looped in one transaction, so:
+
+```
+Open  --begin_settlement-->  Settling  --settle_forager (once per forager)-->
+      --finalize_settlement (requires settled_count == settleable_forager_count)-->  Open
+```
+
+Registration and retirement are frozen during `Settling`, which keeps the
+population stable and removes a race class. Ordering cannot be manipulated:
+each forager settles independently and the accumulator is a sum. Early
+finalization is blocked by the count guard.
+
+Two populations are tracked separately and must not be conflated:
+`settleable_forager_count` (everyone who must be settled) and
+`active_forager_count` (only those normalized into weights). Demoting a forager
+mid-crank changes the second, never the first, so the completion test stays
+sound.
+
