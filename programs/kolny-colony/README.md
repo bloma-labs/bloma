@@ -239,3 +239,25 @@ papered over, and it is why withdrawals are limited to idle liquidity and why
 the redemption queue exists. The program cannot force-liquidate deployed
 capital, so it does not promise immediate liquidity.
 
+## Loss absorption
+
+```
+1. the forager's own sub-account
+2. the forager's bond
+3. the Risk Cache
+4. depositor net asset value
+```
+
+Steps 2 and 3 are the cushion. Step 4 is the honest limit: the cushion is
+finite, and once bonds and cache are exhausted the remaining loss reduces
+depositor share value.
+
+Bond, cache, principal and losses are all denominated in the **same base
+asset**. A bond in a different token could not cover a base-asset loss without
+a swap, and this program has no DEX, so the waterfall would break.
+
+The burn share of a slash is transferred to a locked incinerator PDA that has
+no withdrawal instruction. That is an economic burn. If the base mint is not
+the project token, it does **not** reduce project-token supply, and no code or
+copy here claims that it does.
+
