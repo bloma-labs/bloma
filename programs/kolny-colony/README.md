@@ -443,3 +443,32 @@ cannot run past the slots that exist. A unit test pins
 enlarging the board fails the build's test run rather than truncating the
 capped set silently at runtime.
 
+## Build
+
+Toolchain this was built and verified against:
+
+```
+anchor-cli             0.31.1
+solana-cli / agave     3.0.0
+platform-tools         BPF rustc 1.89.0
+host rustc / cargo     1.95.0
+```
+
+```bash
+cd packages/anchor-program
+
+# Pure logic tests. No validator, no network.
+cargo test
+
+# Compile the program and generate the IDL. Does not contact any cluster.
+anchor build
+
+ls -la target/deploy/kolny_colony.so
+ls -la target/idl/kolny_colony.json
+```
+
+`anchor-lang` and `anchor-spl` are pinned to `0.31.1` to match the CLI exactly;
+a CLI/lib version split is what produces IDL `TypeNotFound` failures.
+`[profile.release] overflow-checks = true` is required by Anchor 0.31 and is
+also a correctness control, since arithmetic here is financial.
+
