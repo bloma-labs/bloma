@@ -472,3 +472,64 @@ a CLI/lib version split is what produces IDL `TypeNotFound` failures.
 `[profile.release] overflow-checks = true` is required by Anchor 0.31 and is
 also a correctness control, since arithmetic here is financial.
 
+## Deployment
+
+**This program has not been deployed, and nothing here deploys it.**
+
+No CI job, npm script, or hook in this package sends a transaction to any
+cluster. `Anchor.toml` pins `cluster = "Localnet"` and points `wallet` at a
+path that does not exist, rather than at the shared `~/.config/solana/id.json`
+-- sharing that file would make one upgrade authority own several unrelated
+programs.
+
+Deploying requires an explicit decision from the project owner: a
+project-scoped deploy keypair, its pubkey, an approved cluster, and a funded
+balance.
+
+The TypeScript tests under `tests/` are written but not wired to run: they need
+a local validator, which is a deliberate, separate decision.
+
+### The program ID is a placeholder
+
+`declare_id!` currently holds `Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS`,
+which is a well-known Anchor example key and **is not this program's address**.
+
+This matters more than it looks. **Every PDA in this program is derived from the
+program ID.** Deploying under a real keypair without replacing the placeholder
+first means the addresses the program derives at runtime and the addresses the
+front end, the SDK and the indexer derive from the IDL are computed from
+different program IDs, so nothing lines up: accounts appear missing, and
+initialization would create a second, unreachable set of accounts. It fails
+confusingly rather than loudly.
+
+Replacement is a manual step, run once, with the owner present:
+
+```bash
+# 1. The owner supplies the program keypair path. Do not generate one here.
+#    Read its public key (this touches no cluster):
+solana-keygen pubkey /path/to/kolny-colony-keypair.json
+
+# 2. Replace the ID in both places it appears.
+scripts/set-program-id.sh <PROGRAM_ID>
+
+# 3. Rebuild. The IDL carries the address, so it must be regenerated.
+anchor build
+
+# 4. Verify all three agree before going any further.
+grep -n declare_id programs/kolny-colony/src/lib.rs
+grep -n kolny_colony Anchor.toml
+python3 -c "import json;print(json.load(open('target/idl/kolny_colony.json'))['address'])"
+```
+
+Checklist, all four required:
+
+- [ ] `declare_id!` in `src/lib.rs` is the real program ID
+- [ ] `[programs.localnet]` in `Anchor.toml` matches it
+- [ ] `anchor build` re-run, and `target/idl/kolny_colony.json` `address` matches
+- [ ] PDAs re-derived and compared against the front end and SDK, using the
+      table in this README, before any account is initialized
+
+`scripts/set-program-id.sh` is deliberately **not** wired into any build, test,
+hook or CI job. It edits source and must be a decision someone makes, not a side
+effect of running a build.
+
