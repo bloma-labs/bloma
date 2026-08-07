@@ -24,6 +24,13 @@ REQUIRED=(
   "docs/references.md"
   ".github/workflows/ci.yml"
   ".github/scripts/gate.py"
+  "Anchor.toml"
+  "Cargo.toml"
+  "idl/kolny_colony.json"
+  "programs/kolny-colony/Cargo.toml"
+  "programs/kolny-colony/src/lib.rs"
+  "programs/kolny-colony/README.md"
+  "scripts/set-program-id.sh"
 )
 
 echo "repository root: $REPO_ROOT"
@@ -62,6 +69,23 @@ else
   for entry in "${THIN[@]}"; do
     echo "  $entry"
   done
+  STATUS=1
+fi
+
+# The program ID appears in three places and every PDA derives from it. If they
+# drift, the mismatch does not fail loudly at runtime; it silently produces a
+# second, unreachable set of accounts. So it is checked here instead.
+LIB_ID=$(grep -oP 'declare_id!\("\K[^"]+' programs/kolny-colony/src/lib.rs 2>/dev/null)
+TOML_ID=$(grep -oP '^kolny_colony = "\K[^"]+' Anchor.toml 2>/dev/null)
+IDL_ID=$(python3 -c "import json;print(json.load(open('idl/kolny_colony.json'))['address'])" 2>/dev/null)
+
+if [ -n "$LIB_ID" ] && [ "$LIB_ID" = "$TOML_ID" ] && [ "$LIB_ID" = "$IDL_ID" ]; then
+  echo "PASS program-id-consistency (lib.rs, Anchor.toml and idl agree on $LIB_ID)"
+else
+  echo "FAIL program-id-consistency"
+  echo "  src/lib.rs   $LIB_ID"
+  echo "  Anchor.toml  $TOML_ID"
+  echo "  idl address  $IDL_ID"
   STATUS=1
 fi
 
