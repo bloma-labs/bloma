@@ -533,3 +533,47 @@ Checklist, all four required:
 hook or CI job. It edits source and must be a decision someone makes, not a side
 effect of running a build.
 
+## Known limitations
+
+Stated here rather than discovered later.
+
+### No `cancel_redemption`
+
+A queued `RedemptionRequest` can only be settled by `fulfill_redemption`, which
+pays out of idle liquidity. If NAV collapses to zero, `assets_for_shares`
+returns 0, `payable` is 0, and the request stays `RedemptionNotReady`
+indefinitely, holding its `pending_redemption_shares` reservation.
+
+- **No depositor funds are lost by this.** The reserved shares are the
+  requester's own, and the rent for the request account is the only value
+  actually locked.
+- It requires NAV at or near zero, which means the colony has already lost
+  essentially everything; the queue is not the depositor's problem at that
+  point.
+- Adding it is small and self-contained: a `cancel_redemption(request_id)`
+  instruction that returns `request.shares` to `position.shares`, decrements
+  `brood.pending_redemption_shares`, and closes the request to the owner. It was
+  left out because it is not in the instruction set this program was specified
+  against, and adding unrequested instructions to a program that moves money is
+  its own risk.
+
+### Promotion counts epochs, not trades
+
+`promote_min_trades` is specified as a count of realized closed trades. The
+program cannot observe individual trades: it sees a sub-account balance at
+settlement and nothing else. The promotion gate therefore tests
+`realized_epochs`, the number of settled epochs that closed with a non-zero
+realized result.
+
+The alternative was to let an operator submit its own trade count. That is
+rejected on principle and not as a matter of taste: a self-reported number that
+gates access to colony capital is an unsecured oracle, protecting more capital
+than the bond behind it, and it is the same class of trust surface this program
+avoids everywhere else by measuring balances instead of accepting claims.
+
+The trade-off is real and stated plainly: **the promotion bar is coarser than
+the specification's.** A forager that trades once per epoch and one that trades
+fifty times clear the epoch count identically. The other three promotion
+conditions -- minimum scout epochs, cumulative risk-adjusted performance above
+the bar, and non-negative cumulative realized PnL -- carry the weight, and a
+genuine trade count belongs to `forager-runtime`, which can see the fills.
