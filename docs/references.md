@@ -112,3 +112,47 @@ https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/thompson.pdf
 
 ---
 
+## C. Solana AI agents and on-chain tooling (2026 landscape)
+
+These support the gap thesis in the concept and fix the Anchor version.
+
+**SendAI, Solana Agent Kit.** https://github.com/sendaifun/solana-agent-kit
+`[verified]`.
+- Finding: 60-plus on-chain actions across five plugins (token, NFT, DeFi, misc,
+  blinks) for building agents that execute Solana operations. The README covers
+  execution primitives; it contains no standard for allocating capital across
+  many agents or for verifying and comparing agents' realized trading performance
+  on-chain.
+- Maps to: direct evidence for KOLNY's premise. Tooling to let an agent *act*
+  exists and is mature; a protocol standard for performance-weighted capital
+  *allocation* across a colony of agents, with bonding and slashing, is what is
+  missing and what KOLNY provides.
+
+**Alchemy (2026).** "How to Build a Solana AI Agent in 2026."
+https://www.alchemy.com/blog/how-to-build-solana-ai-agents-in-2026 `[verified]`.
+- Finding: a current survey of the agent-building stack (Solana Agent Kit,
+  ElizaOS, GOAT, Rig). All are oriented at building and executing individual
+  agents. The article does not describe a standard for cross-agent capital
+  allocation or for on-chain verification of realized performance.
+- Maps to: confirms the 2026 landscape is execution-first, leaving the
+  allocation-and-verification layer that KOLNY targets unoccupied. Prior "agentic
+  fund" narratives (for example ai16z on ElizaOS) exist but are single funds, not
+  an open, performance-weighted allocation protocol.
+
+**Anchor releases (Solana Foundation).**
+https://github.com/solana-foundation/anchor/releases `[verified]`.
+- Finding: the latest published stable Anchor release is 1.1.2 (June 2026).
+- Maps to: the version note in `architecture.md` section 8 and `security.md`
+  section 4. The concept material's "Anchor 0.31" is two major versions behind;
+  the program should pin a current version.
+
+**crates.io registry, `anchor-lang`.**
+https://crates.io/api/v1/crates/anchor-lang `[verified]`.
+- Finding: `max_stable_version` is 1.1.2 and the newest published version is
+  2.0.0-rc.1 (release candidate, 2026-08). This is the authoritative registry
+  confirmation of the release-page finding above.
+- Maps to: same version note. Pin an explicit, current version in `Anchor.toml`;
+  decide between the latest stable and the release candidate deliberately.
+
+---
+
