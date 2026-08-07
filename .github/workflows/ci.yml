@@ -22,3 +22,39 @@ jobs:
 
       - name: Run the specification gate
         run: bash .github/scripts/check.sh
+
+  links:
+    name: external links
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve every external link in the tree
+        run: |
+          set -uo pipefail
+          mapfile -t urls < <(
+            grep -rhoE 'https?://[A-Za-z0-9._~:/?#@!$&*+,;=%-]+' \
+              --include='*.md' . \
+              | sed -e 's/[).,]*$//' \
+              | sort -u
+          )
+          echo "checking ${#urls[@]} distinct URLs"
+          failed=0
+          for url in "${urls[@]}"; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' -L --max-time 25 \
+              -A 'kolny-ci' "$url" || echo 000)
+            case "$code" in
+              2*|3*|401|403|405|429)
+                echo "ok   $code $url"
+                ;;
+              *)
+                echo "dead $code $url"
+                failed=1
+                ;;
+            esac
+          done
+          if [ "$failed" -ne 0 ]; then
+            echo "FAIL external-links: at least one URL did not resolve"
+            exit 1
+          fi
+          echo "PASS external-links"
