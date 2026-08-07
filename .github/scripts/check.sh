@@ -89,6 +89,23 @@ else
   STATUS=1
 fi
 
+# This repository must not be able to send a transaction to any cluster as a
+# side effect of a build, a test or a workflow.
+CLUSTER=$(grep -oP '^cluster = "\K[^"]+' Anchor.toml 2>/dev/null)
+# Character classes rather than literal two-word strings, so this pattern also
+# catches odd spacing and does not match itself.
+WIRED=$(grep -rnE 'anchor[[:space:]]+deploy|solana[[:space:]]+program[[:space:]]+deploy|solana[[:space:]]+airdrop|solana-keygen[[:space:]]+new' \
+  .github/workflows package.json Anchor.toml 2>/dev/null | wc -l)
+
+if [ "$CLUSTER" = "Localnet" ] && [ "$WIRED" -eq 0 ]; then
+  echo "PASS no-chain-contact (cluster is Localnet, no deploy command is wired in)"
+else
+  echo "FAIL no-chain-contact"
+  echo "  cluster: $CLUSTER (expected Localnet)"
+  echo "  deploy commands wired into workflows or scripts: $WIRED"
+  STATUS=1
+fi
+
 echo
 python3 .github/scripts/gate.py || STATUS=1
 
