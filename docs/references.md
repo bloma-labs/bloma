@@ -156,3 +156,22 @@ https://crates.io/api/v1/crates/anchor-lang `[verified]`.
 
 ---
 
+## Verification notes and honesty
+
+- All `[verified]` links were fetched on 2026-08-15 and returned real content.
+  Items marked `[verified, PDF]` returned a valid PDF file; the citation and the
+  hosting location are confirmed even though automated text extraction of the PDF
+  body was not performed.
+- Subscription-gated primary sources (Springer for Grasse and Auer, Oxford
+  full-text for Thompson) are cited by DOI as the canonical identifier, with an
+  accessible alternative provided and verified.
+- Two items could not be verified as freely accessible and are deliberately not
+  given an unchecked link: Dorigo's 1992 PhD thesis (print, Italian; the 1996
+  paper is its accessible published form), and the secondary review Theraulaz and
+  Bonabeau (1999) "A Brief History of Stigmergy" (Artificial Life 5(2), 97-116;
+  the ACM and journal pages returned access-forbidden responses during research).
+- The Anchor 1.x and 2.0.0-rc.1 finding is a change from the concept's assumption
+  and rests on two independent authoritative sources that agree (the GitHub
+  releases page and the crates.io registry API). It is reported as a
+  cross-checked fact, with the residual caveat that both reads were mediated by
+  the fetch tool's summarizer rather than parsed byte-for-byte.
