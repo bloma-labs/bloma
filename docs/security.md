@@ -189,3 +189,19 @@ of section 3.1, the 30 percent bond haircut, and the top-up windows in
 
 ---
 
+## 6. RPC key exposure
+
+- Client code (the web app and the CLI) uses **public RPC only** and the wallet
+  adapter's default public endpoints. No keyed RPC URL is ever shipped to a
+  client.
+- **Secrets never go in `NEXT_PUBLIC_*`.** Those values are inlined in plain text
+  into the client build. API keys, keyed RPC URLs, and bot
+  tokens are server-side environment variables only.
+- Keyed RPC is reached only through the `service` app's `/api/*` route handler
+  acting as a **server-side proxy**, so the key never leaves the server.
+- Build gate: after building the web app, a scan of the client bundle for keyed
+  RPC URLs and API-key query parameters must return zero matches. A non-zero
+  result is a release blocker, not a warning.
+
+---
+
