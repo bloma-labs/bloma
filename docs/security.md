@@ -205,3 +205,21 @@ of section 3.1, the 30 percent bond haircut, and the top-up windows in
 
 ---
 
+## 7. Security gates (pre-mainnet)
+
+Each item below must reach PASS before mainnet. Status starts at FAIL and is
+flipped to PASS only after it is verified in code and tested, per the project
+rule that "complete" means actually executed and checked, never assumed.
+
+| Gate | Requirement |
+|---|---|
+| G1 | All PDAs re-derived and `bump` stored; no account trusted without a seeds or `has_one` check |
+| G2 | Every state change requires the correct `Signer` |
+| G3 | Token-account `mint`, `owner`, and derivation validated on every transfer |
+| G4 | Realized-performance commits reconcile against sub-account balance deltas; unreconciled commits rejected |
+| G5 | Oracle staleness and confidence checks on every price read |
+| G6 | All config parameters range-checked on-chain; out-of-range writes impossible |
+| G7 | Upgrade authority is a multisig with a timelock, holder published |
+| G8 | Rebalancing uses slippage limits, jitter, and MEV-aware execution |
+| G9 | Epoch settlement cutoff and deposit anti-sniping in place |
+| G10 | Client bundle scan for keyed RPC URLs and API keys returns zero matches |
