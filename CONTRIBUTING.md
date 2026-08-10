@@ -54,3 +54,42 @@ defect with the same severity as a broken build.
   prefixes (`feat:`, `fix:`, `chore:`, and so on) or any other colon prefix.
 - Wrap prose at 80 columns.
 
+## Reporting a problem
+
+Open an issue describing:
+
+1. Which document or file, and which section.
+2. What the text claims.
+3. Why that is wrong, with a concrete counterexample where the claim is about
+   the mathematics or the risk model.
+4. A source link, where the claim is about an external fact.
+
+For a suspected flaw that would let capital move incorrectly, say so plainly in
+the issue title. Those are triaged first.
+
+## Proposing a change
+
+1. Fork and branch from `main`.
+2. Make the change. Keep one concern per commit.
+3. Run the local gate before opening a pull request:
+
+```bash
+bash .github/scripts/check.sh
+```
+
+That script runs the same checks as the continuous-integration workflow:
+repository structure, document substance, prohibited language, emoji, and
+cross-reference resolution. It must print `PASS` for every check.
+
+4. Open a pull request describing what changed and why. If the change touches
+   the allocation math or the risk model, state which invariant it preserves.
+
+## Security
+
+Do not open a public issue for a vulnerability in a deployed program. There is
+no deployed program at the time of writing; when there is, this section will
+carry a disclosure address and a response window.
+
+## License
+
+Contributions are accepted under the MIT License. See `LICENSE`.
