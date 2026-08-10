@@ -17,6 +17,7 @@ STATUS=0
 REQUIRED=(
   "README.md"
   "LICENSE"
+  "CONTRIBUTING.md"
   "docs/architecture.md"
   "docs/allocation-spec.md"
   "docs/risk-spec.md"
