@@ -158,6 +158,16 @@ been realized, decayed by how long ago it happened.
 
 ---
 
+## Contributing
+
+Specification review is the most useful contribution while there is no deployed
+program: an error in the allocation math or the loss waterfall is far cheaper to
+fix here than after capital is at stake. See
+[`CONTRIBUTING.md`](./CONTRIBUTING.md) for what to look for and the ground
+rules.
+
+---
+
 ## License
 
 MIT. See [`LICENSE`](./LICENSE).
