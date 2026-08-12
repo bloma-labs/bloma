@@ -192,6 +192,27 @@ been realized, decayed by how long ago it happened.
 
 ---
 
+## Reading the specification
+
+```bash
+git clone https://github.com/kolny/kolny.git
+cd kolny
+
+# start here
+less docs/architecture.md
+
+# run the same gate CI runs
+bash .github/scripts/check.sh
+```
+
+Suggested order: `docs/architecture.md` for the boundaries and the epoch loop,
+then `docs/allocation-spec.md` for the mathematics, then `docs/risk-spec.md`
+for what happens when it goes wrong, then `docs/security.md` for the trust
+model, and `docs/references.md` when you want to check a claim against its
+source.
+
+---
+
 ## Contributing
 
 Specification review is the most useful contribution while there is no deployed
