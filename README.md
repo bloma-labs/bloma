@@ -125,6 +125,40 @@ Details, slash triggers and the full parameter table are in
 
 ---
 
+## What this repository contains
+
+```
+programs/kolny-colony/
+  src/lib.rs           program entrypoint and instruction surface
+  src/state.rs         ColonyConfig, BroodVaultState, RiskCacheState, TrailBoard,
+                       ForagerState
+  src/math.rs          fixed-point evaporation, deposit transform, weight capping
+  src/instructions/    admin, vault, forager, settlement, risk
+  src/events.rs        26 events; src/errors.rs 33 error variants
+  README.md            account table, PDA seeds, instruction reference
+idl/
+  kolny_colony.json    generated interface, 28 instructions
+scripts/
+  set-program-id.sh    placeholder-to-real program ID swap, wired into nothing
+tests/
+  kolny-colony.ts      integration tests, require a local validator
+docs/
+  architecture.md      system boundaries, components, epoch data flow
+  allocation-spec.md   pheromone update, deposit transform, weights, parameters
+  risk-spec.md         bonds, slashing, isolation, insurance cache, disclosure
+  security.md          account validation, authority model, attack surface
+  references.md        every external source, with verification dates
+.github/
+  workflows/ci.yml     the gate
+  scripts/check.sh     the same gate, runnable locally
+  scripts/gate.py      prohibited language, non-text characters, cross-references
+```
+
+The repository root is an Anchor workspace, so `anchor build` works on a clone
+without further setup.
+
+---
+
 ## Honesty
 
 Autonomous agent trading loses money. A protocol that allocates capital to
