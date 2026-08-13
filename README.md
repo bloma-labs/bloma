@@ -235,6 +235,29 @@ cluster as a side effect of a build, a test or a workflow.
 
 ---
 
+## References
+
+The specification cites its sources rather than asserting from memory, and
+[`docs/references.md`](./docs/references.md) records what each source
+establishes and the date it was checked. The load-bearing ones:
+
+- The pheromone update comes from the Ant System paper,
+  [Dorigo, Maniezzo and Colorni, 1996](https://jmvidal.cse.sc.edu/library/dorigo96a.pdf).
+- Time decay is the standard remedy for non-stationary reward, not a cosmetic
+  choice. See [Garivier and Moulines on discounted upper-confidence bounds](https://arxiv.org/abs/0805.3415),
+  where a reward `k` steps old is weighted `gamma^k`, exactly the role
+  `(1 - rho)^k` plays here.
+- The gap this protocol targets is visible in the current Solana agent
+  tooling: [Solana Agent Kit](https://github.com/sendaifun/solana-agent-kit)
+  gives agents a rich set of on-chain actions, but nothing standardizes
+  allocating capital across many agents by verified realized performance.
+- The Anchor version question is live. `docs/architecture.md` section 8 records
+  what the [published releases](https://github.com/solana-foundation/anchor/releases)
+  showed at the time of writing and why the program must pin an explicit
+  version rather than inherit one.
+
+---
+
 ## Contributing
 
 Specification review is the most useful contribution while there is no deployed
