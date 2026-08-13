@@ -213,6 +213,28 @@ source.
 
 ---
 
+## Verification
+
+The gate that runs on every push and pull request checks that:
+
+- every required document and source file is present and none has been reduced
+  to a stub,
+- the program ID agrees across `src/lib.rs`, `Anchor.toml` and the published
+  IDL, because every PDA derives from it and a drift there fails silently
+  rather than loudly,
+- `Anchor.toml` still pins `cluster = "Localnet"` and no deploy command is
+  wired into any workflow or npm script,
+- no prohibited term appears outside the canonical prohibition list,
+- no emoji or box-drawing character appears in any document,
+- every relative cross-reference resolves to a file that exists,
+- every external URL in the tree still resolves.
+
+Run it locally with `bash .github/scripts/check.sh`. There is no deployment
+workflow in this repository, and nothing here can send a transaction to a
+cluster as a side effect of a build, a test or a workflow.
+
+---
+
 ## Contributing
 
 Specification review is the most useful contribution while there is no deployed
