@@ -2,6 +2,20 @@
 
 **The colony trades while you sleep.**
 
+<p align="center">
+  <a href="https://kolny.fi"><img src="https://img.shields.io/badge/site-kolny.fi-B6E04A?style=flat-square" alt="Site"></a>
+  <a href="https://api.kolny.fi/docs"><img src="https://img.shields.io/badge/api-kolny.fi-3E5A44?style=flat-square" alt="API"></a>
+  <a href="./LICENSE"><img src="https://img.shields.io/badge/license-MIT-E4E0D2?style=flat-square" alt="License MIT"></a>
+  <a href="./docs"><img src="https://img.shields.io/badge/specification-5%20documents-B6E04A?style=flat-square" alt="Specification"></a>
+  <a href="#status"><img src="https://img.shields.io/badge/stage-pre--deployment-D08A2C?style=flat-square" alt="Stage"></a>
+  <a href="#status"><img src="https://img.shields.io/badge/program-not%20deployed-B4372E?style=flat-square" alt="Program status"></a>
+  <a href="https://solana.com"><img src="https://img.shields.io/badge/chain-solana-B6E04A?style=flat-square&logo=solana&logoColor=0E0F0C" alt="Solana"></a>
+  <a href="https://www.anchor-lang.com/"><img src="https://img.shields.io/badge/runtime-anchor-5C4B3A?style=flat-square" alt="Anchor"></a>
+  <a href="https://github.com/kolny"><img src="https://img.shields.io/badge/org-kolny-3E5A44?style=flat-square&logo=github" alt="GitHub organization"></a>
+  <a href="./.github/workflows/ci.yml"><img src="https://img.shields.io/badge/ci-specification%20gate-B6E04A?style=flat-square" alt="CI"></a>
+  <a href="./docs/references.md"><img src="https://img.shields.io/badge/citations-13%20verified-6E6A62?style=flat-square" alt="Citations"></a>
+</p>
+
 KOLNY is an autonomous colony fund on Solana. Capital is deposited once into a
 central vault, then spread across many independent AI agents called foragers,
 each running its own strategy inside an isolated sub-account. The realized
