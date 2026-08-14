@@ -30,6 +30,45 @@ was checked against.
 
 ---
 
+## Status
+
+Read this section before anything else.
+
+- **There is no deployed program.** No mainnet address, no devnet address, no
+  audit. Nothing here moves capital today, and `Anchor.toml` pins
+  `cluster = "Localnet"` so that stays true by construction.
+- **The program builds and its tests pass.** `anchor build` succeeds,
+  `cargo test` reports 70 passing, and the generated interface in
+  [`idl/`](./idl/kolny_colony.json) covers 28 instructions, 7 account types,
+  26 events and 33 error variants. That is a statement about a build, not about
+  a deployment and not about an audit.
+- **[CRITICAL] The program ID is still a placeholder.** `declare_id!` in
+  `programs/kolny-colony/src/lib.rs`, `Anchor.toml` and the `address` field of
+  the published IDL all read
+  `Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS`, which is the Anchor template
+  default and not a real deployment. At deploy time it is replaced by the real
+  program keypair. **Every PDA in this program derives from the program ID, so
+  addresses you derive against the published IDL today will not match the
+  deployed program.** Do not hard-code them. See
+  [`scripts/set-program-id.sh`](./scripts/set-program-id.sh) for the swap and
+  the four things that must be redone after it.
+- **The Agent SDK and the CLI are not in this tree.** They are described in
+  `docs/architecture.md` and are published here once their interface settles,
+  not before. If you came looking for them, their absence is the current state
+  rather than an oversight.
+- **The web application and the read API are running.**
+  [kolny.fi](https://kolny.fi) and [api.kolny.fi](https://api.kolny.fi/docs)
+  respond. Because no program is deployed, nothing they show is derived from
+  on-chain colony state yet.
+- **The numbers in `docs/allocation-spec.md` section 10 are a worked example**
+  chosen to illustrate the mechanics, not a backtest and not a projection. Its
+  parameters are deliberately not the production defaults.
+
+If a section of this README ever describes something the tree does not contain,
+that is a defect. Open an issue.
+
+---
+
 ## How allocation works
 
 The mechanism is an adaptation of the Ant System pheromone update
