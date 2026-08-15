@@ -8,7 +8,7 @@
   <a href="./LICENSE"><img src="https://img.shields.io/badge/license-MIT-E4E0D2?style=flat-square" alt="License MIT"></a>
   <a href="./docs"><img src="https://img.shields.io/badge/specification-5%20documents-B6E04A?style=flat-square" alt="Specification"></a>
   <a href="#status"><img src="https://img.shields.io/badge/stage-pre--deployment-D08A2C?style=flat-square" alt="Stage"></a>
-  <a href="#status"><img src="https://img.shields.io/badge/program-not%20deployed-B4372E?style=flat-square" alt="Program status"></a>
+  <a href="#status"><img src="https://img.shields.io/badge/program-devnet%20only-D08A2C?style=flat-square" alt="Program status"></a>
   <a href="https://solana.com"><img src="https://img.shields.io/badge/chain-solana-B6E04A?style=flat-square&logo=solana&logoColor=0E0F0C" alt="Solana"></a>
   <a href="https://www.anchor-lang.com/"><img src="https://img.shields.io/badge/runtime-anchor-5C4B3A?style=flat-square" alt="Anchor"></a>
   <a href="https://github.com/kolny"><img src="https://img.shields.io/badge/org-kolny-3E5A44?style=flat-square&logo=github" alt="GitHub organization"></a>
@@ -34,24 +34,34 @@ was checked against.
 
 Read this section before anything else.
 
-- **There is no deployed program.** No mainnet address, no devnet address, no
-  audit. Nothing here moves capital today, and `Anchor.toml` pins
-  `cluster = "Localnet"` so that stays true by construction.
+- **Devnet only. There is no mainnet deployment and no audit.** Nothing here
+  moves real capital today. `Anchor.toml` still pins `cluster = "Localnet"`; the
+  devnet deployment was made with an explicit cluster argument rather than by
+  changing that default.
+- **The program is live on devnet.**
+  `7whkmFfDcTyoJgf7jFGFmKNFMQn8NoreHnh2wZ9nWbsk`
+  ([explorer](https://explorer.solana.com/address/7whkmFfDcTyoJgf7jFGFmKNFMQn8NoreHnh2wZ9nWbsk?cluster=devnet)).
+  `initialize_colony` has run, and the `colony_config` singleton exists at
+  `64abUz1zEsF8USkGQcpHxJRjWAxJH4jUaKmM5uKun173` with a 312-byte account, which
+  is exactly `8 + ColonyConfig::LEN`. The remaining singletons (brood vault,
+  risk cache, trail board) are **not yet initialized**: their addresses derive
+  but the accounts do not exist.
 - **The program builds and its tests pass.** `anchor build` succeeds,
   `cargo test` reports 74 passing, and the generated interface in
   [`idl/`](./idl/kolny_colony.json) covers 28 instructions, 7 account types,
-  26 events and 33 error variants. That is a statement about a build, not about
-  a deployment and not about an audit.
-- **[CRITICAL] The program ID is still a placeholder.** `declare_id!` in
-  `programs/kolny-colony/src/lib.rs`, `Anchor.toml` and the `address` field of
-  the published IDL all read
-  `Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS`, which is the Anchor template
-  default and not a real deployment. At deploy time it is replaced by the real
-  program keypair. **Every PDA in this program derives from the program ID, so
-  addresses you derive against the published IDL today will not match the
-  deployed program.** Do not hard-code them. See
+  26 events and 33 error variants. That is a statement about a build and a
+  devnet deployment, not about an audit.
+- **The published IDL now carries the devnet program ID**, not the Anchor
+  template placeholder it shipped with earlier. Every PDA in this program
+  derives from the program ID, so **a mainnet deployment will change every
+  address in this file.** Derive addresses at runtime from the IDL rather than
+  hard-coding them. See
   [`scripts/set-program-id.sh`](./scripts/set-program-id.sh) for the swap and
   the four things that must be redone after it.
+- **The devnet colony was initialized with devnet wSOL as its base mint.**
+  `colony_config` is a singleton, so changing the base mint on devnet requires a
+  redeploy under a new program ID. That is fine for a test cluster; it is stated
+  here so nobody reads the devnet configuration as the intended production one.
 - **The Agent SDK and the CLI are not in this tree.** They are described in
   `docs/architecture.md` and are published here once their interface settles,
   not before. If you came looking for them, their absence is the current state
