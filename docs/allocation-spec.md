@@ -496,7 +496,17 @@ loss-containment model.
   header shows the negative realized number; the system does not pretend.
 - **New colony cold start.** With no history, all foragers are Scouts, most
   capital sits un-deployed or in the cache, and only the exploration budget moves
-  until the first promotions establish trails.
+  until the first promotions establish trails. **The first epoch allocates
+  nothing at all**, including the exploration budget: `allocatable_pool` and the
+  scout budget are both set by `finalize_settlement`, so they read zero until the
+  first settlement closes. A deposit made on day one is held, accounted and
+  withdrawable from the moment it lands, but it is not deployed to any forager
+  until that settlement runs, one full epoch later. Promotion to Active then
+  needs `promote_min_epochs` further epochs, so a colony starting from nothing
+  reaches its main allocation path in roughly five epochs. This is stated
+  explicitly because a depositor sees "deposited" immediately and "deployed"
+  considerably later, and the gap is a property of the design rather than a
+  delay in the system.
 - **Determinism.** All arithmetic is fixed-point with a fixed rounding rule so
   the on-chain update and the off-chain mirror agree exactly. Pheromone ties are
   broken by forager registration order.
