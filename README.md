@@ -38,7 +38,7 @@ Read this section before anything else.
   audit. Nothing here moves capital today, and `Anchor.toml` pins
   `cluster = "Localnet"` so that stays true by construction.
 - **The program builds and its tests pass.** `anchor build` succeeds,
-  `cargo test` reports 70 passing, and the generated interface in
+  `cargo test` reports 74 passing, and the generated interface in
   [`idl/`](./idl/kolny_colony.json) covers 28 instructions, 7 account types,
   26 events and 33 error variants. That is a statement about a build, not about
   a deployment and not about an audit.

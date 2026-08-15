@@ -179,20 +179,34 @@ def check_private_identifiers(files: list[Path]) -> list[str]:
 
 
 def check_references(files: list[Path]) -> list[str]:
+    """A clickable link and a prose mention are resolved differently.
+
+    GitHub renders ``[text](path)`` relative to the directory of the file it
+    appears in, so a link is only correct if it resolves that way. A backticked
+    ``path.md`` in prose is a name, not a link, and a reader reads it as the
+    document at that path in the repository. So a mention is accepted if it
+    resolves either from the file's own directory or from the repository root.
+    """
     failures = []
     for path in files:
         rel = path.relative_to(REPO_ROOT)
         text = path.read_text(encoding="utf-8")
-        targets = set()
+
+        links = set()
         for target in MD_LINK.findall(text):
             if target.startswith(("http://", "https://", "mailto:", "#")):
                 continue
-            targets.add(target.split("#", 1)[0])
-        targets.update(MD_BACKTICK_DOC.findall(text))
-        for target in sorted(t for t in targets if t):
-            resolved = (path.parent / target).resolve()
-            if not resolved.exists():
-                failures.append(f"{rel}: unresolved reference {target!r}")
+            links.add(target.split("#", 1)[0])
+        for target in sorted(t for t in links if t):
+            if not (path.parent / target).resolve().exists():
+                failures.append(f"{rel}: unresolved link {target!r}")
+
+        mentions = set(MD_BACKTICK_DOC.findall(text)) - links
+        for target in sorted(t for t in mentions if t):
+            from_file = (path.parent / target).resolve()
+            from_root = (REPO_ROOT / target).resolve()
+            if not from_file.exists() and not from_root.exists():
+                failures.append(f"{rel}: unresolved mention {target!r}")
     return failures
 
 

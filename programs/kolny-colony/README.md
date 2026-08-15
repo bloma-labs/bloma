@@ -260,8 +260,8 @@ a swap, and this program has no DEX, so the waterfall would break.
 
 The bond sits **inside the forager's own sub-account**, which is the account the
 operator trades from. A loss deep enough to exhaust principal keeps going into
-the bond itself. `risk-spec.md` section 2 says this outright: a forager's loss is
-bounded by its sub-account balance *plus its bond*.
+the bond itself. `docs/risk-spec.md` section 2 says this outright: a forager's
+loss is bounded by its sub-account balance *plus its bond*.
 
 Two consequences, both handled explicitly:
 
