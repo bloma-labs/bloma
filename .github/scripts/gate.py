@@ -44,6 +44,26 @@ EMOJI_RANGES = (
 
 SKIP_DIRS = {".git", "node_modules", "target", ".next", "dist", "build"}
 
+# These documents are maintained elsewhere and copied in. A copy step is exactly
+# where a private path or an internal account name gets carried across by
+# accident, so the shapes such a leak takes are matched here rather than trusting
+# the copy to have been read carefully. Matching shapes rather than a list of
+# known-bad names means this keeps working for names nobody has thought of yet.
+PRIVATE_SHAPES = (
+    (re.compile(r"/home/[A-Za-z0-9._-]+/"), "absolute home directory path"),
+    (re.compile(r"/Users/[A-Za-z0-9._-]+/"), "absolute macOS home path"),
+    (re.compile(r"[A-Za-z]:\\\\?Users\\"), "absolute Windows user path"),
+    (re.compile(r"\bapps/(?:web|service)/"), "internal monorepo application path"),
+    (re.compile(r"\.next/"), "internal build output path"),
+)
+
+# A capitalized token directly before "repository" is usually an account or
+# organization name. Public ones are fine; anything unrecognized is treated as an
+# internal name that escaped a copy step, which is how the private deploy account
+# leaked into two of these documents once already.
+REPO_OWNER = re.compile(r"\b([A-Z][A-Za-z0-9-]{2,})\s+repositor(?:y|ies)\b")
+PUBLIC_OWNERS = {"github", "kolny", "the", "this", "anchor", "solana", "mit", "idl"}
+
 MD_LINK = re.compile(r"\[[^\]]*\]\(([^)\s]+)")
 MD_BACKTICK_DOC = re.compile(r"`([A-Za-z0-9._/-]+\.md)`")
 QUOTED = re.compile(r'"([^"]+)"')
@@ -138,6 +158,26 @@ def check_emoji(files: list[Path]) -> list[str]:
     return failures
 
 
+def check_private_identifiers(files: list[Path]) -> list[str]:
+    failures = []
+    for path in files:
+        rel = path.relative_to(REPO_ROOT)
+        for number, line in enumerate(
+            path.read_text(encoding="utf-8").splitlines(), start=1
+        ):
+            for pattern, label in PRIVATE_SHAPES:
+                found = pattern.search(line)
+                if found:
+                    failures.append(f"{rel}:{number}: {label} {found.group(0)!r}")
+            for owner in REPO_OWNER.findall(line):
+                if owner.lower() not in PUBLIC_OWNERS:
+                    failures.append(
+                        f"{rel}:{number}: unrecognized account name {owner!r} "
+                        f"before 'repository'"
+                    )
+    return failures
+
+
 def check_references(files: list[Path]) -> list[str]:
     failures = []
     for path in files:
@@ -184,6 +224,7 @@ def main() -> int:
     ok = True
     ok &= report("prohibited-language", check_language(files, terms, region))
     ok &= report("emoji", check_emoji(files))
+    ok &= report("private-identifiers", check_private_identifiers(files))
     ok &= report("cross-references", check_references(files))
     return 0 if ok else 1
 
