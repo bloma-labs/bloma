@@ -341,15 +341,35 @@ pub fn allocation_target(
     (num / (BPS_DENOM * level.rest_sum)) as u64
 }
 
-/// Allocation ceiling implied by posted bond: `bond / bond_ratio`.
+/// Allocation ceiling implied by posted bond:
+/// `bond * (1 - haircut) / bond_ratio`.
 ///
 /// Skin in the game gates capital, so a forager whose trail would earn more
 /// than its bond supports is capped here instead of having its bond raised.
-pub fn bond_capacity(bond: u64, bond_ratio_bps: u16) -> u64 {
+///
+/// The haircut recognizes only part of the posted bond, and the reason is
+/// specific to how this program holds it. The bond sits inside the forager's own
+/// sub-account, which is the account the operator trades from, so between two
+/// settlements a loss can quietly eat into the bond itself; `recoverable_bond`
+/// exists precisely because the recorded figure can end up larger than what is
+/// actually there. `bond_capacity` is evaluated against that recorded figure at
+/// rebalance time, so it is reading a number that is accurate only as of the
+/// last settlement. Discounting it is what keeps allocation from being extended
+/// against collateral that may already be partly gone.
+///
+/// It is NOT a price haircut. Bond, principal, cache and losses are all the same
+/// base asset, and this program reads no price oracle at all.
+///
+/// Note the direction: a haircut makes the requirement stricter, not looser. At
+/// a 10 percent bond ratio a forager must post 10 percent of its allocation with
+/// no haircut, and 14.3 percent at a 30 percent haircut.
+pub fn bond_capacity(bond: u64, bond_ratio_bps: u16, bond_haircut_bps: u16) -> u64 {
     if bond_ratio_bps == 0 {
         return u64::MAX;
     }
-    ((bond as u128) * BPS_DENOM / (bond_ratio_bps as u128)).min(u64::MAX as u128) as u64
+    let recognized_bps = BPS_DENOM.saturating_sub(bond_haircut_bps as u128);
+    // Multiply before dividing so the haircut does not lose precision.
+    ((bond as u128) * recognized_bps / (bond_ratio_bps as u128)).min(u64::MAX as u128) as u64
 }
 
 /// Insert a value into a descending-ordered fixed-size top list.
@@ -428,6 +448,27 @@ pub fn assets_for_shares(shares: u128, total_shares: u128, nav: u64) -> u64 {
 // ---------------------------------------------------------------------------
 // Loss coverage and slashing
 // ---------------------------------------------------------------------------
+
+/// The part of a recorded bond that is actually still in the sub-account.
+///
+/// The operator trades from the same account its bond sits in, so a loss deep
+/// enough to exhaust principal keeps going into the bond itself. Once that
+/// happens `ForagerState.bond` overstates what is really there, and paying the
+/// loss waterfall out of the recorded figure would attempt to move more base
+/// asset than the account holds.
+///
+/// That is not a rounding concern, it is a liveness one: the transfer fails, the
+/// whole `settle_forager` transaction reverts, and because that forager can then
+/// never be settled, `settled_count` never reaches its target and every future
+/// `finalize_settlement` is blocked. One forager blowing through its bond would
+/// stall settlement for the entire colony.
+///
+/// `risk-spec.md` section 2 states plainly that a forager's loss is bounded by
+/// its sub-account balance **plus its bond**, so reaching into the bond is
+/// expected behavior and not an exceptional case.
+pub fn recoverable_bond(bond: u64, vault_balance: u64) -> u64 {
+    bond.min(vault_balance)
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct LossOutcome {
@@ -1118,9 +1159,30 @@ mod tests {
 
     #[test]
     fn bond_capacity_gates_allocation() {
-        // bond 30_000 at a 10% ratio supports 300_000 of allocation.
-        assert_eq!(bond_capacity(30_000, 1_000), 300_000);
-        assert_eq!(bond_capacity(0, 1_000), 0);
+        // With no haircut, bond 30_000 at a 10% ratio supports 300_000.
+        assert_eq!(bond_capacity(30_000, 1_000, 0), 300_000);
+        assert_eq!(bond_capacity(0, 1_000, 0), 0);
+    }
+
+    #[test]
+    fn bond_haircut_tightens_rather_than_loosens() {
+        // A haircut recognizes less of the posted bond, so the same bond
+        // supports LESS allocation. It is a stricter rule, not a weaker one.
+        let full = bond_capacity(30_000, 1_000, 0);
+        let cut = bond_capacity(30_000, 1_000, 3_000);
+        assert_eq!(full, 300_000);
+        assert_eq!(cut, 210_000);
+        assert!(cut < full);
+
+        // Read the other way: to support 300_000 under a 30% haircut a forager
+        // must post about 14.3% of the allocation rather than 10%.
+        let needed = 300_000u64 * 10_000 / (7_000u64 * 10_000 / 1_000);
+        assert_eq!(needed, 42_857);
+        assert!(bond_capacity(42_858, 1_000, 3_000) >= 300_000);
+
+        // A full haircut recognizes nothing, which stops allocation outright
+        // rather than dividing by zero.
+        assert_eq!(bond_capacity(30_000, 1_000, 10_000), 0);
     }
 
     #[test]
@@ -1228,6 +1290,46 @@ mod tests {
         // The cushion is finite: with nothing posted, depositors take it all.
         let o4 = cover_loss(100, 0, 0);
         assert_eq!(o4.to_vault_loss, 100);
+    }
+
+    #[test]
+    fn waterfall_never_draws_more_bond_than_the_account_holds() {
+        // Regression test. A forager with a recorded bond of 500 and principal
+        // of 1000 traded its sub-account down to 200. The recorded bond now
+        // overstates the account by 300.
+        let vault_balance = 200u64;
+        let recorded_bond = 500u64;
+        let principal = 1_000u64;
+
+        let realized = realized_epoch_pnl(vault_balance, recorded_bond, principal);
+        assert_eq!(realized, -1_000);
+        let loss = realized.unsigned_abs();
+
+        // Using the recorded bond asks for 500 out of an account holding 200.
+        // The SPL transfer would fail, reverting settle_forager permanently for
+        // this forager and stalling the crank for the whole colony.
+        let naive = cover_loss(loss, recorded_bond, 0);
+        assert_eq!(naive.from_bond, 500);
+        assert!(naive.from_bond > vault_balance, "this is the defect");
+
+        // Recognizing the shortfall first keeps every transfer payable.
+        let present = recoverable_bond(recorded_bond, vault_balance);
+        assert_eq!(present, 200);
+        let fixed = cover_loss(loss, present, 0);
+        assert!(fixed.from_bond <= vault_balance);
+        assert_eq!(fixed.from_bond, 200);
+        // The operator's collateral is gone and depositors bear the remainder,
+        // which is what risk-spec 4.2 step 4 describes.
+        assert_eq!(fixed.to_vault_loss, 800);
+    }
+
+    #[test]
+    fn recoverable_bond_is_never_more_than_the_balance() {
+        assert_eq!(recoverable_bond(500, 200), 200); // eaten into
+        assert_eq!(recoverable_bond(500, 500), 500); // exactly intact
+        assert_eq!(recoverable_bond(500, 900), 500); // bond plus principal
+        assert_eq!(recoverable_bond(0, 900), 0);
+        assert_eq!(recoverable_bond(500, 0), 0); // account wiped out
     }
 
     #[test]

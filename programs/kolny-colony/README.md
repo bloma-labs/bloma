@@ -256,6 +256,41 @@ Bond, cache, principal and losses are all denominated in the **same base
 asset**. A bond in a different token could not cover a base-asset loss without
 a swap, and this program has no DEX, so the waterfall would break.
 
+### The bond can be consumed, and the haircut is why
+
+The bond sits **inside the forager's own sub-account**, which is the account the
+operator trades from. A loss deep enough to exhaust principal keeps going into
+the bond itself. `risk-spec.md` section 2 says this outright: a forager's loss is
+bounded by its sub-account balance *plus its bond*.
+
+Two consequences, both handled explicitly:
+
+- **Settlement recognizes the shortfall before it pays anyone.**
+  `recoverable_bond(bond, vault_balance)` caps the recorded bond at what the
+  account actually holds. Without it the loss waterfall would try to move more
+  base asset than exists, the transfer would fail, `settle_forager` would revert
+  permanently for that forager, and every future `finalize_settlement` would be
+  blocked -- one blown-up forager stalling settlement for the whole colony.
+- **Allocation discounts the bond it has not re-verified.** `bond_capacity` is
+  evaluated at rebalance time against a recorded figure that is only accurate as
+  of the last settlement, so `bond_haircut_bps` recognizes just part of it. That
+  is what keeps capital from being extended against collateral that may already
+  be partly gone.
+
+`bond_capacity = bond * (1 - haircut) / bond_ratio`
+
+**This is not a price haircut.** There is no oracle in this program and nothing
+reads a token price; bond, principal, cache and losses are one asset. Earlier
+drafts of the risk specification described the bond as `$KOLNY` valued at an
+oracle price with a haircut against token volatility. That design was replaced by
+a single-base-asset bond, for the waterfall reason above, and the haircut's
+justification changed with it.
+
+Note the direction, because it is easy to read backwards: **a haircut makes the
+requirement stricter, not weaker.** At a 10 percent bond ratio a forager must
+post 10 percent of its allocation with no haircut, and about 14.3 percent at a 30
+percent haircut. The same posted bond supports 30 percent less capital.
+
 The burn share of a slash is transferred to a locked incinerator PDA that has
 no withdrawal instruction. That is an economic burn. If the base mint is not
 the project token, it does **not** reduce project-token supply, and no code or

@@ -82,9 +82,12 @@ realized performance used to update pheromone.
 
 ### 3.1 Oracle discipline
 
-- Prices for asset marking, base-asset valuation, and `$KOLNY` bond valuation
-  come from a robust oracle (for example Pyth or Switchboard), never a single-DEX
-  spot price, which is cheap to manipulate.
+- Prices used to mark open positions **for display only** come from a robust
+  oracle (for example Pyth or Switchboard), never a single-DEX spot price, which
+  is cheap to manipulate. Bond valuation is deliberately absent from that list:
+  bonds are posted in `base_mint` and the program reads no oracle for them
+  (section 5.4). A marked price never enters `perf_f` and never moves capital
+  (`allocation-spec.md` section 4).
 - Every oracle read enforces a **staleness check** (reject prices older than a
   small slot bound) and a **confidence check** (reject when the oracle's
   confidence interval is too wide), plus sanity bounds. A trade or valuation that
@@ -180,12 +183,29 @@ a known reallocation.
   and performance inputs can be committed under commit-reveal, so the precise
   boundary is not a fixed, gameable target.
 
-### 5.4 Bond token price manipulation
+### 5.4 Bond consumption between settlements
 
-Manipulating the `$KOLNY` oracle to over-value a bond (to under-collateralize) or
-under-value it (to force a top-up) is mitigated by the robust oracle discipline
-of section 3.1, the 30 percent bond haircut, and the top-up windows in
-`risk-spec.md` section 1.2.
+There is no bond price attack surface, because there is no bond price. Bonds are
+posted in the vault's `base_mint`, the same asset as deposits and the Risk Cache,
+and **the program reads no price oracle for collateral valuation**. An earlier
+draft of this document described manipulating a `$KOLNY` oracle to mis-value a
+bond; that threat does not exist against this design and the paragraph has been
+removed rather than left to imply a defense that is not implemented.
+
+The real exposure is different. A bond is held inside the forager's own
+sub-account, which is the account the operator trades from, so a loss that
+exhausts principal continues into the bond itself (`risk-spec.md` section 2). An
+operator can therefore reduce its own posted collateral simply by losing, between
+one settlement and the next, while allocation capacity is still being evaluated
+against the bond figure recorded at the last settlement.
+
+Two mitigations, both implemented: allocation capacity recognizes only
+`1 - bond_haircut_bps` of the recorded bond, so capital is not extended against
+collateral that may already be partly consumed; and settlement withdraws at most
+`min(recorded_bond, actual_sub_account_balance)`, so a bond that has been spent
+cannot make the loss waterfall attempt an over-withdrawal. Without the second
+rule an insolvent forager reverts its own settlement transaction permanently,
+which stalls the epoch crank for the whole colony.
 
 ---
 

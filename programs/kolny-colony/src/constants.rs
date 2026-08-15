@@ -146,7 +146,16 @@ pub const DEFAULT_BOND_RATIO_BPS: u16 = 1_000;
 pub const MIN_BOND_RATIO_BPS: u16 = 500;
 pub const MAX_BOND_RATIO_BPS: u16 = 5_000;
 
-/// Over-collateralization against collateral price swings. 3000 = 30%.
+/// Share of a posted bond not recognized as allocation capacity. 3000 = 30%.
+///
+/// This is NOT a price haircut. The program reads no oracle; bond, principal,
+/// cache and losses are all one asset. The bond sits in the sub-account the
+/// operator trades from, so the recorded figure is only accurate as of the last
+/// settlement and part of it may already be gone.
+///
+/// The direction is easy to read backwards: a haircut makes the requirement
+/// stricter. At a 0.10 bond ratio a 0.30 haircut means a forager must post
+/// `0.10 / (1 - 0.30)` = 14.3% of its allocation, not 10%.
 pub const DEFAULT_BOND_HAIRCUT_BPS: u16 = 3_000;
 pub const MIN_BOND_HAIRCUT_BPS: u16 = 1_000;
 pub const MAX_BOND_HAIRCUT_BPS: u16 = 7_000;

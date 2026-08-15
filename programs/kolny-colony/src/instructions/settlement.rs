@@ -268,8 +268,25 @@ pub fn settle_forager(ctx: Context<SettleForager>, forager_id: u64) -> Result<()
     // this instruction: without it a bond top-up would read as trading profit
     // and an operator could inflate its own trail with capital it still owns.
     let vault_balance = ctx.accounts.forager_vault.amount;
-    let bond = ctx.accounts.forager.bond;
+    let recorded_bond = ctx.accounts.forager.bond;
     let old_principal = ctx.accounts.forager.principal;
+
+    // A loss that exhausts principal keeps going into the bond, because the
+    // operator trades from the same account the bond sits in. Recognize that
+    // before anything is paid out: the recorded bond can overstate the account,
+    // and paying the waterfall from the recorded figure would ask for more base
+    // asset than exists. The transfer would fail, settle_forager would revert
+    // for good, and the colony's crank would never reach its completion target.
+    let bond = math::recoverable_bond(recorded_bond, vault_balance);
+
+    // Write the shortfall down immediately, not only on the loss path. A scout
+    // holding no principal can still trade its bond down, and that epoch closes
+    // with `realized == 0`, so the loss branch never runs. Leaving the record
+    // overstated would defer the same unpayable waterfall to the next epoch that
+    // does close at a loss.
+    if bond != recorded_bond {
+        ctx.accounts.forager.bond = bond;
+    }
 
     let equity = vault_balance.saturating_sub(bond);
     let realized = math::realized_epoch_pnl(vault_balance, bond, old_principal);
@@ -708,6 +725,7 @@ pub fn rebalance_forager(ctx: Context<RebalanceForager>, forager_id: u64) -> Res
     let turnover_cap_bps = ctx.accounts.config.turnover_cap_bps;
     let turnover_used = ctx.accounts.config.epoch_turnover_used;
     let bond_ratio_bps = ctx.accounts.config.bond_ratio_bps;
+    let bond_haircut_bps = ctx.accounts.config.bond_haircut_bps;
     let eff_max_weight_bps = math::effective_max_weight_bps(
         ctx.accounts.config.w_max_bps,
         ctx.accounts.config.active_forager_count,
@@ -730,7 +748,7 @@ pub fn rebalance_forager(ctx: Context<RebalanceForager>, forager_id: u64) -> Res
         allocatable_pool,
         eff_max_weight_bps,
     )
-    .min(math::bond_capacity(bond, bond_ratio_bps));
+    .min(math::bond_capacity(bond, bond_ratio_bps, bond_haircut_bps));
 
     // The target depends on lifecycle state. Only an Active forager may draw
     // main-pool capital; every other state can return capital but never take

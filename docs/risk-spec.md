@@ -14,10 +14,10 @@ what happens when that capital is lost. The same realized numbers drive both.
 
 ## 1. Forager bond and slashing
 
-Every forager posts a `$KOLNY` bond to register. The bond is skin in the game: it
-makes bad behavior and reckless loss expensive to the operator, and it is the
-first external capital used to make depositors whole when a forager loses beyond
-tolerance.
+Every forager posts a bond to register, denominated in the vault's `base_mint`.
+The bond is skin in the game: it makes bad behavior and reckless loss expensive
+to the operator, and it is the first external capital used to make depositors
+whole when a forager loses beyond tolerance.
 
 ### 1.1 Bond sizing
 
@@ -34,23 +34,43 @@ allocation above what its bond supports, **the allocation is capped at
 `posted_bond / bond_ratio`**, not the bond raised automatically. Skin in the game
 gates capital, not the other way around.
 
-### 1.2 The bond is volatile collateral (stated plainly)
+### 1.2 The bond is discounted collateral (stated plainly)
 
-The bond is denominated in `$KOLNY`, whose price moves, while losses are
-denominated in the base asset. The bond is therefore valued at the oracle
-`$KOLNY` price with a conservative haircut:
+The bond is denominated in the vault's `base_mint`, the same asset as deposits,
+the Risk Cache and realized losses. That is deliberate rather than incidental:
+the loss-absorption waterfall of section 4.2 has to settle without a swap, and
+the program holds no DEX route. A bond posted in a separate floating token would
+have to be sold under exactly the conditions that trigger a slash, which is when
+selling is worst. **The program therefore reads no price oracle at all**, and the
+bond carries no token-price exposure of its own.
+
+The bond is still recognized conservatively rather than at face value:
 
 ```
-bond_value_f  =  (1 - haircut) * oracle_price(KOLNY) * bond_tokens_f
+bond_value_f  =  (1 - haircut) * bond_tokens_f
 ```
 
-`haircut` (default 0.30) over-collateralizes against token price swings. If
-`bond_value_f` falls below `required_bond_f`, the forager enters a top-up window;
-failing to top up within the window freezes new allocation and, past a second
-window, is treated as a rule breach. This is disclosed because it is a real
-weakness: in a sharp `$KOLNY` drawdown, bonds are worth less exactly when they
-may be needed. The haircut, the cache, and correlation limits mitigate it; they
-do not remove it.
+The bond sits inside the forager's own sub-account, which is the account the
+operator trades from, so a loss that exhausts principal continues into the bond
+itself (section 2). Allocation capacity is evaluated between settlements against
+a recorded bond figure that is accurate only as of the last settlement, so
+`haircut` (default 0.30, range 0.10..0.70) recognizes part of that figure rather
+than all of it, and capital is not extended against collateral that may already
+be partly consumed. **It is not a price haircut: the program reads no price
+oracle.**
+
+Note the direction. The haircut **tightens** the collateral requirement rather
+than loosening it: with `bond_ratio` 0.10, a 0.30 haircut means a forager must
+post `0.10 / (1 - 0.30)` = **14.3 percent** of its allocation, not 10, and a
+posted bond of 1,000 supports 7,000 of allocation instead of 10,000.
+
+If `bond_value_f` falls below `required_bond_f`, the forager enters a top-up
+window; failing to top up within the window freezes new allocation and, past a
+second window, is treated as a rule breach.
+
+What the bond does not do, stated plainly: it bounds one forager's damage, not
+the colony's. Correlated losses across many foragers drain bonds and cache
+together, and section 4.2 step 4 is where depositors take whatever remains.
 
 ### 1.3 Slash conditions
 
@@ -261,7 +281,7 @@ directs capital.
 |---|---|---|---|---|---|
 | Minimum bond | `min_bond_tokens` | u64 | project-set | > 0 | Floor bond in `$KOLNY` |
 | Bond ratio | `bond_ratio_bps` | u16 | 1000 | 500..5000 | Bond as fraction of allocation; 10% |
-| Bond haircut | `bond_haircut_bps` | u16 | 3000 | 1000..7000 | Over-collateralization vs token price; 30% |
+| Bond haircut | `bond_haircut_bps` | u16 | 3000 | 1000..7000 | Share of a posted bond not recognized as allocation capacity, because the bond sits in the traded sub-account and may already be partly consumed since the last settlement. Not a price haircut; no oracle is read. Tightens the requirement: 0.10 ratio at 30% becomes 14.3% of allocation |
 | Probation drawdown | `dd_probation_bps` | u16 | 1500 | 500..4000 | Current drawdown to enter probation; 15% |
 | Slash drawdown | `dd_slash_bps` | u16 | 3000 | 1000..6000 | Current drawdown to slash; 30% |
 | Epoch loss limit | `epoch_loss_limit_bps` | u16 | 1000 | 300..3000 | Per-epoch realized loss to pause/probate; 10% |
