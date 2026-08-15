@@ -111,11 +111,12 @@ pub const MAX_PROMOTE_MIN_EPOCHS: u8 = 52;
 
 /// Scout epochs that must have closed with a non-zero realized result.
 ///
-/// This is deliberately NOT a fill count. The specification originally asked for
-/// `promote_min_trades`, but the program cannot observe individual fills, only
-/// settled epoch outcomes, so the gate is stated in the unit the chain can
-/// actually verify and the parameter is named for what it counts. The
-/// specification has since been corrected to match.
+/// This is deliberately NOT a fill count. The specification originally asked
+/// for `promote_min_trades`, a number of realized closed trades, but the program
+/// cannot observe individual fills -- only settled epoch outcomes. So the gate
+/// is stated in the unit the chain can actually verify, and the parameter is
+/// named for what it counts. The specification has since been corrected to
+/// match.
 ///
 /// The default is chosen against `DEFAULT_PROMOTE_MIN_EPOCHS`, not against the
 /// original trade count. Carrying 20 over would have meant 20 active
@@ -148,14 +149,24 @@ pub const MAX_BOND_RATIO_BPS: u16 = 5_000;
 
 /// Share of a posted bond not recognized as allocation capacity. 3000 = 30%.
 ///
-/// This is NOT a price haircut. The program reads no oracle; bond, principal,
-/// cache and losses are all one asset. The bond sits in the sub-account the
-/// operator trades from, so the recorded figure is only accurate as of the last
-/// settlement and part of it may already be gone.
+/// **Not a price haircut.** Bond, principal, cache and losses are all the same
+/// base asset and this program reads no price oracle. Earlier drafts denominated
+/// the bond in a separate token and discounted it against that token's price;
+/// that design was replaced by a single-base-asset bond so the loss waterfall
+/// can settle without a swap, and this parameter's justification changed with
+/// it.
 ///
-/// The direction is easy to read backwards: a haircut makes the requirement
-/// stricter. At a 0.10 bond ratio a 0.30 haircut means a forager must post
-/// `0.10 / (1 - 0.30)` = 14.3% of its allocation, not 10%.
+/// What it actually guards: the bond sits inside the forager's own sub-account,
+/// which is the account the operator trades from, so a loss that exhausts
+/// principal continues into the bond itself (see `math::recoverable_bond`).
+/// `bond_capacity` is evaluated between settlements against a recorded bond
+/// figure that is accurate only as of the last settlement, so recognizing part
+/// of it rather than all of it keeps capital from being extended against
+/// collateral that may already be partly consumed.
+///
+/// Direction, because it reads backwards easily: a haircut makes the
+/// requirement STRICTER. At a 10 percent bond ratio a forager posts 10 percent
+/// of its allocation with no haircut and about 14.3 percent at 30 percent.
 pub const DEFAULT_BOND_HAIRCUT_BPS: u16 = 3_000;
 pub const MIN_BOND_HAIRCUT_BPS: u16 = 1_000;
 pub const MAX_BOND_HAIRCUT_BPS: u16 = 7_000;
