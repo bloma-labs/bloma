@@ -58,7 +58,7 @@ pub struct InitColonyParams {
 
     // -- scout promotion -----------------------------------------------------
     pub promote_min_epochs: u8,
-    pub promote_min_trades: u16,
+    pub promote_min_realized_epochs: u16,
     pub promote_perf_bar_bps: i32,
     pub scout_ticket_base_units: u64,
     pub promote_tau_seed_cap: u64,
@@ -106,7 +106,7 @@ pub struct ConfigPatch {
 
     // -- scout promotion -----------------------------------------------------
     pub promote_min_epochs: Option<u8>,
-    pub promote_min_trades: Option<u16>,
+    pub promote_min_realized_epochs: Option<u16>,
     pub promote_perf_bar_bps: Option<i32>,
     pub scout_ticket_base_units: Option<u64>,
     pub promote_tau_seed_cap: Option<u64>,
@@ -197,9 +197,9 @@ impl InitColonyParams {
             MAX_PROMOTE_MIN_EPOCHS
         );
         in_range!(
-            self.promote_min_trades,
-            MIN_PROMOTE_MIN_TRADES,
-            MAX_PROMOTE_MIN_TRADES
+            self.promote_min_realized_epochs,
+            MIN_PROMOTE_MIN_REALIZED_EPOCHS,
+            MAX_PROMOTE_MIN_REALIZED_EPOCHS
         );
         in_range!(
             self.promote_perf_bar_bps,
@@ -290,6 +290,22 @@ impl InitColonyParams {
             ColonyError::ParamOutOfRange
         );
 
+        // The activity requirement cannot exceed the tenure requirement. A
+        // forager accrues at most one realized epoch per scout epoch, so
+        // demanding more realized epochs than scout epochs silently makes the
+        // tenure gate dead code and stretches promotion by the difference.
+        //
+        // This invariant exists because that is exactly what happened: this
+        // parameter used to be the specification's `promote_min_trades` with a
+        // default of 20, and once it was being evaluated against epochs rather
+        // than fills, promotion quietly required 20 epochs -- about 140 days at
+        // a 7-day epoch -- instead of the intended four. The rename fixed the
+        // name and the default; this check makes the failure unreachable.
+        require!(
+            self.promote_min_realized_epochs as u64 <= self.promote_min_epochs as u64,
+            ColonyError::ParamOutOfRange
+        );
+
         Ok(())
     }
 
@@ -310,7 +326,7 @@ impl InitColonyParams {
             turnover_cap_bps: config.turnover_cap_bps,
 
             promote_min_epochs: config.promote_min_epochs,
-            promote_min_trades: config.promote_min_trades,
+            promote_min_realized_epochs: config.promote_min_realized_epochs,
             promote_perf_bar_bps: config.promote_perf_bar_bps,
             scout_ticket_base_units: config.scout_ticket_base_units,
             promote_tau_seed_cap: config.promote_tau_seed_cap,
@@ -348,7 +364,7 @@ impl InitColonyParams {
         config.turnover_cap_bps = self.turnover_cap_bps;
 
         config.promote_min_epochs = self.promote_min_epochs;
-        config.promote_min_trades = self.promote_min_trades;
+        config.promote_min_realized_epochs = self.promote_min_realized_epochs;
         config.promote_perf_bar_bps = self.promote_perf_bar_bps;
         config.scout_ticket_base_units = self.scout_ticket_base_units;
         config.promote_tau_seed_cap = self.promote_tau_seed_cap;
@@ -408,8 +424,8 @@ impl ConfigPatch {
         if let Some(v) = self.promote_min_epochs {
             base.promote_min_epochs = v;
         }
-        if let Some(v) = self.promote_min_trades {
-            base.promote_min_trades = v;
+        if let Some(v) = self.promote_min_realized_epochs {
+            base.promote_min_realized_epochs = v;
         }
         if let Some(v) = self.promote_perf_bar_bps {
             base.promote_perf_bar_bps = v;
@@ -1047,7 +1063,7 @@ mod tests {
             turnover_cap_bps: DEFAULT_TURNOVER_CAP_BPS,
 
             promote_min_epochs: DEFAULT_PROMOTE_MIN_EPOCHS,
-            promote_min_trades: DEFAULT_PROMOTE_MIN_TRADES,
+            promote_min_realized_epochs: DEFAULT_PROMOTE_MIN_REALIZED_EPOCHS,
             promote_perf_bar_bps: DEFAULT_PROMOTE_PERF_BAR_BPS,
             scout_ticket_base_units: 1_000_000,
             promote_tau_seed_cap: DEFAULT_PROMOTE_TAU_SEED_CAP,
@@ -1084,7 +1100,7 @@ mod tests {
             turnover_cap_bps: None,
 
             promote_min_epochs: None,
-            promote_min_trades: None,
+            promote_min_realized_epochs: None,
             promote_perf_bar_bps: None,
             scout_ticket_base_units: None,
             promote_tau_seed_cap: None,
@@ -1110,6 +1126,53 @@ mod tests {
     #[test]
     fn published_defaults_pass_the_range_gate() {
         assert!(published_defaults().validate().is_ok());
+    }
+
+    /// Promotion must not be able to demand more activity than tenure.
+    ///
+    /// This pins a defect that actually shipped into the parameter table. The
+    /// field began life as the specification's `promote_min_trades`, a count of
+    /// realized closed trades with a default of 20. The program cannot observe
+    /// fills, so the gate was evaluated against epochs instead, and the 20 came
+    /// along with it: promotion silently required 20 active epochs, roughly 140
+    /// days at a 7-day epoch, rather than the intended four, and the tenure
+    /// requirement became unreachable dead code because the activity count
+    /// always bound first.
+    ///
+    /// A forager can accrue at most one realized epoch per scout epoch, so the
+    /// two are ordered by construction and the ordering is now enforced.
+    #[test]
+    fn activity_requirement_cannot_exceed_tenure_requirement() {
+        // The historical value is rejected outright rather than silently
+        // stretching the promotion timeline.
+        let mut p = published_defaults();
+        p.promote_min_realized_epochs = 20;
+        assert!(
+            p.validate().is_err(),
+            "20 realized epochs against 4 scout epochs must be rejected"
+        );
+
+        // Equality is allowed: every scout epoch must be productive.
+        let mut p = published_defaults();
+        p.promote_min_realized_epochs = p.promote_min_epochs as u16;
+        assert!(p.validate().is_ok());
+
+        // One past tenure is not.
+        let mut p = published_defaults();
+        p.promote_min_realized_epochs = p.promote_min_epochs as u16 + 1;
+        assert!(p.validate().is_err());
+
+        // Raising tenure re-admits a higher activity bar.
+        let mut p = published_defaults();
+        p.promote_min_epochs = 12;
+        p.promote_min_realized_epochs = 10;
+        assert!(p.validate().is_ok());
+
+        // The shipped defaults leave promotion reachable in roughly a month at
+        // a 7-day epoch, which is what the specification intended.
+        let d = published_defaults();
+        assert_eq!(d.promote_min_epochs, 4);
+        assert_eq!(d.promote_min_realized_epochs, 3);
     }
 
     #[test]

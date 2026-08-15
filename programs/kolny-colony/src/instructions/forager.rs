@@ -373,7 +373,7 @@ pub fn promote_forager(ctx: Context<PromoteForager>, _forager_id: u64) -> Result
     let config = &ctx.accounts.config;
     let forager = &mut ctx.accounts.forager;
 
-    // `promote_min_trades` is evaluated against `realized_epochs`, the number of
+    // `promote_min_realized_epochs` is evaluated against `realized_epochs`, the number of
     // settled epochs that closed with a non-zero realized result. The program
     // cannot observe individual trades: it sees sub-account balances at
     // settlement, not fills. The alternative -- having the operator submit a
@@ -381,7 +381,7 @@ pub fn promote_forager(ctx: Context<PromoteForager>, _forager_id: u64) -> Result
     // is exactly the manipulation surface this design removes elsewhere. So the
     // gate is stated in the units the chain can actually verify.
     let criteria_met = forager.scout_epochs >= config.promote_min_epochs as u64
-        && forager.realized_epochs >= config.promote_min_trades as u64
+        && forager.realized_epochs >= config.promote_min_realized_epochs as u64
         && forager.scout_perf_cum_bps >= config.promote_perf_bar_bps as i64
         && forager.realized_pnl_cumulative >= 0;
     require!(criteria_met, ColonyError::PromotionCriteriaNotMet);

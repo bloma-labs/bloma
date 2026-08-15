@@ -109,9 +109,24 @@ pub const DEFAULT_PROMOTE_MIN_EPOCHS: u8 = 4;
 pub const MIN_PROMOTE_MIN_EPOCHS: u8 = 1;
 pub const MAX_PROMOTE_MIN_EPOCHS: u8 = 52;
 
-pub const DEFAULT_PROMOTE_MIN_TRADES: u16 = 20;
-pub const MIN_PROMOTE_MIN_TRADES: u16 = 1;
-pub const MAX_PROMOTE_MIN_TRADES: u16 = 1_000;
+/// Scout epochs that must have closed with a non-zero realized result.
+///
+/// This is deliberately NOT a fill count. The specification originally asked for
+/// `promote_min_trades`, but the program cannot observe individual fills, only
+/// settled epoch outcomes, so the gate is stated in the unit the chain can
+/// actually verify and the parameter is named for what it counts. The
+/// specification has since been corrected to match.
+///
+/// The default is chosen against `DEFAULT_PROMOTE_MIN_EPOCHS`, not against the
+/// original trade count. Carrying 20 over would have meant 20 active
+/// epochs, which at a 7-day epoch is about 140 days, and it would have made the
+/// tenure requirement dead code because it would always bind first. Three of the
+/// four required scout epochs must show real activity, so a scout cannot idle
+/// its way to promotion, and the timeline stays the roughly one month the
+/// specification intended.
+pub const DEFAULT_PROMOTE_MIN_REALIZED_EPOCHS: u16 = 3;
+pub const MIN_PROMOTE_MIN_REALIZED_EPOCHS: u16 = 1;
+pub const MAX_PROMOTE_MIN_REALIZED_EPOCHS: u16 = 52;
 
 pub const DEFAULT_PROMOTE_PERF_BAR_BPS: i32 = 0;
 pub const MIN_PROMOTE_PERF_BAR_BPS: i32 = -5_000;

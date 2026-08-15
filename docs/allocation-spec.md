@@ -190,8 +190,9 @@ budget**, the on-chain analog of the exploration term in a bandit policy.
   from this budget. A scout's downside is bounded to its ticket plus its posted
   bond, so exploration never risks a large slice of principal.
 - A scout is promoted to Active when it clears all of: at least
-  `promote_min_epochs` active epochs, at least `promote_min_trades` realized
-  closed trades, and cumulative risk-adjusted realized performance at or above
+  `promote_min_epochs` scout epochs, of which at least
+  `promote_min_realized_epochs` closed with a non-zero realized result, and
+  cumulative risk-adjusted realized performance at or above
   `promote_perf_bar`. On promotion its pheromone is seeded from its scout-phase
   performance, capped at `promote_tau_seed_cap` so a scout cannot enter the main
   pool at the top of the trail.
@@ -444,7 +445,7 @@ negative, so it is signed. The performance computation in fixed-point is
 | No-trade band | `reband_band_bps` | u16 | 200 | 0..1000 | Skip rebalance if abs(delta w) below; 200 = 2% |
 | Turnover cap | `turnover_cap_bps` | u16 | 2500 | 500..10000 | Max pool fraction moved per epoch; 2500 = 25% |
 | Promote min epochs | `promote_min_epochs` | u8 | 4 | 1..52 | Scout epochs before promotion eligible |
-| Promote min trades | `promote_min_trades` | u16 | 20 | 1..1000 | Realized closed trades required in Scout |
+| Promote min realized epochs | `promote_min_realized_epochs` | u16 | 3 | 1..52 | Scout epochs that closed with a non-zero realized result. The chain cannot observe individual fills, so activity is counted in epochs. Enforced invariant: must be `<= promote_min_epochs`, otherwise the tenure gate becomes unreachable |
 | Promote perf bar | `promote_perf_bar_bps` | i32 | 0 | -5000..20000 | Min cumulative risk-adj realized perf to promote |
 | Scout ticket size | `scout_ticket_base_units` | u64 | project-set | > 0 | Fixed scout allocation per ticket |
 | Promotion seed cap | `promote_tau_seed_cap` | u64 (FP6) | 1000000 | 0..5000000 | Cap on initial pheromone at promotion |

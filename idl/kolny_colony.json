@@ -3702,7 +3702,11 @@
             "type": "u16"
           },
           {
-            "name": "promote_min_trades",
+            "name": "promote_min_realized_epochs",
+            "docs": [
+              "Scout epochs that must have closed with a non-zero realized result.",
+              "Counts epochs, not fills; see `constants.rs` for why."
+            ],
             "type": "u16"
           },
           {
@@ -3896,7 +3900,7 @@
             }
           },
           {
-            "name": "promote_min_trades",
+            "name": "promote_min_realized_epochs",
             "type": {
               "option": "u16"
             }
@@ -4496,7 +4500,7 @@
             "type": "u8"
           },
           {
-            "name": "promote_min_trades",
+            "name": "promote_min_realized_epochs",
             "type": "u16"
           },
           {

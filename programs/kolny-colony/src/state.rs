@@ -74,7 +74,9 @@ pub struct ColonyConfig {
     pub scout_budget_bps: u16,
     pub reband_band_bps: u16,
     pub turnover_cap_bps: u16,
-    pub promote_min_trades: u16,
+    /// Scout epochs that must have closed with a non-zero realized result.
+    /// Counts epochs, not fills; see `constants.rs` for why.
+    pub promote_min_realized_epochs: u16,
     pub bond_ratio_bps: u16,
     pub bond_haircut_bps: u16,
     pub dd_probation_bps: u16,

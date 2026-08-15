@@ -559,21 +559,42 @@ indefinitely, holding its `pending_redemption_shares` reservation.
 
 ### Promotion counts epochs, not trades
 
-`promote_min_trades` is specified as a count of realized closed trades. The
-program cannot observe individual trades: it sees a sub-account balance at
-settlement and nothing else. The promotion gate therefore tests
+The specification originally asked for `promote_min_trades`, a count of realized
+closed trades. **The program cannot observe individual trades.** It sees a
+sub-account balance at settlement and nothing else. The specification in `docs/`
+has since been corrected to ask for what the chain can verify, so the two now
+agree; this section records why.
+
+The alternative was to let an operator submit its own trade count. That is
+rejected on principle, not taste: a self-reported number gating access to colony
+capital is an unsecured oracle protecting more capital than the bond behind it,
+and it is the same trust surface this program removes everywhere else by
+measuring balances instead of accepting claims.
+
+So the gate is stated in the unit the chain can verify, and **the parameter is
+named for what it counts**: `promote_min_realized_epochs`, tested against
 `realized_epochs`, the number of settled epochs that closed with a non-zero
 realized result.
 
-The alternative was to let an operator submit its own trade count. That is
-rejected on principle and not as a matter of taste: a self-reported number that
-gates access to colony capital is an unsecured oracle, protecting more capital
-than the bond behind it, and it is the same class of trust surface this program
-avoids everywhere else by measuring balances instead of accepting claims.
+The rename is not cosmetic. When this field was still called
+`promote_min_trades` it kept the specification's default of 20, and once it was
+being compared against epochs that meant promotion required **20 active epochs,
+about 140 days at a 7-day epoch**, rather than the intended four. It also made
+`promote_min_epochs` dead code, because the activity count always bound first.
+Two distortions in opposite directions, from one parameter whose name no longer
+matched its meaning.
 
-The trade-off is real and stated plainly: **the promotion bar is coarser than
-the specification's.** A forager that trades once per epoch and one that trades
-fifty times clear the epoch count identically. The other three promotion
-conditions -- minimum scout epochs, cumulative risk-adjusted performance above
-the bar, and non-negative cumulative realized PnL -- carry the weight, and a
-genuine trade count belongs to `forager-runtime`, which can see the fills.
+The current defaults are `promote_min_epochs = 4` and
+`promote_min_realized_epochs = 3`: a scout must have been around four epochs and
+actually produced a realized result in three of them, which keeps promotion at
+roughly the one month the specification intended while still refusing to promote
+a forager that simply idled. A forager accrues at most one realized epoch per
+scout epoch, so `promote_min_realized_epochs <= promote_min_epochs` is enforced
+in `validate()` and the old failure is unreachable rather than merely fixed.
+
+The remaining trade-off is stated plainly: **the activity bar is coarser than a
+true trade count.** A forager that trades once in an epoch and one that trades
+fifty times clear it identically. The other conditions -- tenure, cumulative
+risk-adjusted performance above the bar, non-negative cumulative realized PnL,
+and a bond at or above the minimum -- carry the weight. A genuine trade count
+belongs to `forager-runtime`, which can see the fills.
