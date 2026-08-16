@@ -31,13 +31,20 @@ Required bond scales with the capital a forager can be allocated, so that
 operators managing more principal have more at stake:
 
 ```
-required_bond_f  =  max( min_bond ,  bond_ratio * allocation_f )
+required_bond_f  =  max( min_bond ,  bond_ratio * allocation_f / (1 - bond_haircut) )
 ```
 
-`bond_ratio` (default 0.10) means a forager allocated 300,000 of base asset must
-keep a bond worth at least 30,000. If pheromone would raise a forager's
-allocation above what its bond supports, **the allocation is capped at
-`posted_bond / bond_ratio`**, not the bond raised automatically. Skin in the game
+Only the recognized part of a bond counts toward capacity, so the haircut of
+section 1.2 belongs in this formula: it makes the requirement stricter, not
+looser. At the defaults (`bond_ratio` 0.10, `bond_haircut` 0.30) each unit of
+posted bond supports seven units of allocation, an effective ratio of 14.3
+percent rather than 10 -- a posted bond of 1,000 supports 7,000 of allocation,
+not 10,000. If pheromone would raise a forager's allocation above what its bond
+supports, **the allocation is capped at
+`posted_bond * (1 - bond_haircut) / bond_ratio`**, not the bond raised
+automatically. That expression is `bond_capacity` in the program
+(`math.rs`), computed in integer basis points as
+`bond * (10000 - bond_haircut_bps) / bond_ratio_bps`. Skin in the game
 gates capital, not the other way around.
 
 ### 1.2 The bond is discounted collateral (stated plainly)
