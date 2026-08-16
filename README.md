@@ -12,7 +12,7 @@
   <a href="https://solana.com"><img src="https://img.shields.io/badge/chain-solana-B6E04A?style=flat-square&logo=solana&logoColor=0E0F0C" alt="Solana"></a>
   <a href="https://www.anchor-lang.com/"><img src="https://img.shields.io/badge/runtime-anchor-5C4B3A?style=flat-square" alt="Anchor"></a>
   <a href="https://github.com/kolny"><img src="https://img.shields.io/badge/org-kolny-3E5A44?style=flat-square&logo=github" alt="GitHub organization"></a>
-  <a href="https://github.com/kolny/kolny/actions/workflows/ci.yml"><img src="https://github.com/kolny/kolny/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI"></a>
+  <a href="https://github.com/kolny-labs/kolny/actions/workflows/ci.yml"><img src="https://github.com/kolny-labs/kolny/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI"></a>
   <a href="./docs/references.md"><img src="https://img.shields.io/badge/citations-9%20of%2013%20verified-6E6A62?style=flat-square" alt="Citations"></a>
 </p>
 
@@ -41,11 +41,21 @@ Read this section before anything else.
 - **The program is live on devnet.**
   `7whkmFfDcTyoJgf7jFGFmKNFMQn8NoreHnh2wZ9nWbsk`
   ([explorer](https://explorer.solana.com/address/7whkmFfDcTyoJgf7jFGFmKNFMQn8NoreHnh2wZ9nWbsk?cluster=devnet)).
-  `initialize_colony` has run, and the `colony_config` singleton exists at
-  `64abUz1zEsF8USkGQcpHxJRjWAxJH4jUaKmM5uKun173` with a 312-byte account, which
-  is exactly `8 + ColonyConfig::LEN`. The remaining singletons (brood vault,
-  risk cache, trail board) are **not yet initialized**: their addresses derive
-  but the accounts do not exist.
+  The colony is fully initialized there. All four program-owned singletons
+  exist, each carrying the account discriminator its own type declares in
+  [`idl/`](./idl/kolny_colony.json), and each sized to `8 + LEN`:
+
+  | Singleton | Address | Bytes |
+  |---|---|---|
+  | `colony_config` | `64abUz1zEsF8USkGQcpHxJRjWAxJH4jUaKmM5uKun173` | 312 |
+  | `brood_vault` | `HV2A82xp6SyuFqaCSVyC4zFhW8qQTAr5pSz468WrTkoV` | 136 |
+  | `risk_cache` | `44Ci19oaaJtfJ3UyoBjpGhyjTykN6iiUyWUqHeo1PEQB` | 112 |
+  | `trail_board` | `AAyhHjRrRc47vKNRpRt3voUwwGyQK3mT153qvjamYTXr` | 184 |
+
+  The three token accounts they custody -- the vault, the cache and the
+  incinerator -- exist too, each a 165-byte SPL token account of the base mint.
+  The devnet colony is at epoch 1 and holds 0.2 wSOL against two registered
+  foragers, both still scouts. Those are test figures on a test cluster.
 - **The program builds and its tests pass.** `anchor build` succeeds,
   `cargo test` reports 74 passing, and the generated interface in
   [`idl/`](./idl/kolny_colony.json) covers 28 instructions, 7 account types,
@@ -68,8 +78,14 @@ Read this section before anything else.
   rather than an oversight.
 - **The web application and the read API are running.**
   [kolny.fi](https://kolny.fi) and [api.kolny.fi](https://api.kolny.fi/docs)
-  respond. Because no program is deployed, nothing they show is derived from
-  on-chain colony state yet.
+  respond. Neither reads the devnet colony, and the reason is configuration
+  rather than missing state: both are pointed at `mainnet-beta`, where this
+  program is not deployed, and the API runs with no program id set. Every
+  colony endpoint answers `"data_source": "not_deployed"` with
+  `"simulated": false` and its figures null, rather than filling the gap with a
+  placeholder. So nothing either of them shows is derived from on-chain colony
+  state -- not because the devnet accounts are absent, but because nothing is
+  looking at them.
 - **The numbers in `docs/allocation-spec.md` section 10 are a worked example**
   chosen to illustrate the mechanics, not a backtest and not a projection. Its
   parameters are deliberately not the production defaults.
@@ -277,7 +293,7 @@ been realized, decayed by how long ago it happened.
 ## Reading the specification
 
 ```bash
-git clone https://github.com/kolny/kolny.git
+git clone https://github.com/kolny-labs/kolny.git
 cd kolny
 
 # start here
