@@ -13,7 +13,7 @@
   <a href="https://www.anchor-lang.com/"><img src="https://img.shields.io/badge/runtime-anchor-5C4B3A?style=flat-square" alt="Anchor"></a>
   <a href="https://github.com/kolny"><img src="https://img.shields.io/badge/org-kolny-3E5A44?style=flat-square&logo=github" alt="GitHub organization"></a>
   <a href="./.github/workflows/ci.yml"><img src="https://img.shields.io/badge/ci-specification%20gate-B6E04A?style=flat-square" alt="CI"></a>
-  <a href="./docs/references.md"><img src="https://img.shields.io/badge/citations-13%20verified-6E6A62?style=flat-square" alt="Citations"></a>
+  <a href="./docs/references.md"><img src="https://img.shields.io/badge/citations-9%20of%2013%20verified-6E6A62?style=flat-square" alt="Citations"></a>
 </p>
 
 KOLNY is an autonomous colony fund on Solana. Capital is deposited once into a
@@ -148,8 +148,13 @@ from the main pool rather than propped up at a minimum weight.
 A fixed `scout_budget` of deployable value, 10 percent by default, never enters
 this competition. It funds small, fixed-size scout tickets for new and
 probationary foragers, which is how a new agent gets a first allocation despite
-starting at zero pheromone. Promotion requires a minimum number of epochs, a
-minimum number of realized closed trades, and a performance bar.
+starting at zero pheromone. Promotion requires all of: a minimum number of scout
+epochs, a minimum number of those epochs closed with a realized result,
+non-negative cumulative realized PnL, a bond at or above `min_bond`, and a
+cumulative risk-adjusted performance bar. Activity is counted in settled epochs
+rather than trades, because settlement reads sub-account balances and cannot
+observe individual fills; accepting an operator's own trade count would turn the
+promotion gate into an unsecured oracle.
 
 Full derivation, the parameter table with on-chain field names and ranges, the
 rejected alternatives, and a three-epoch worked example are in
@@ -178,10 +183,24 @@ is finite, and correlated losses across many foragers at once are the failure
 mode that reaches step 4 fastest. The reserve ratio is published so the size of
 the remaining cushion is always visible.
 
-Bonds are posted in `$KOLNY` and carry a 30 percent haircut because the
-collateral is volatile. The honest weakness, stated in the specification rather
-than hidden: if the token falls hard, bonds are worth least at exactly the
-moment they are needed most.
+Bonds are posted in the vault's `base_mint`, the same asset as deposits, the
+Risk Cache and realized losses. That is what lets the waterfall above settle
+without a swap, since the program holds no DEX route, and it is why **the
+program reads no price oracle at all**. A bond in a separate floating token
+would have to be sold under exactly the conditions that trigger a slash.
+
+The 30 percent haircut is therefore not a price haircut. A bond sits inside the
+forager's own sub-account -- the account the operator trades from -- so a loss
+that exhausts principal continues into the bond itself, while allocation
+capacity is still being measured against the bond figure recorded at the last
+settlement. Recognizing 70 percent of that figure keeps capital from being
+extended against collateral that may already be partly spent. It **tightens**
+the requirement: at a 10 percent bond ratio, a 30 percent haircut means a
+forager posts about 14.3 percent of its allocation, not 10.
+
+The honest weakness, stated in the specification rather than hidden: the cushion
+is finite either way. Bonds and the cache are sized for idiosyncratic failures,
+and correlated losses across many foragers drain both together.
 
 Details, slash triggers and the full parameter table are in
 [`docs/risk-spec.md`](./docs/risk-spec.md).
@@ -314,10 +333,11 @@ establishes and the date it was checked. The load-bearing ones:
   tooling: [Solana Agent Kit](https://github.com/sendaifun/solana-agent-kit)
   gives agents a rich set of on-chain actions, but nothing standardizes
   allocating capital across many agents by verified realized performance.
-- The Anchor version question is live. `docs/architecture.md` section 8 records
-  what the [published releases](https://github.com/solana-foundation/anchor/releases)
-  showed at the time of writing and why the program must pin an explicit
-  version rather than inherit one.
+- The Anchor version is pinned to 0.31.1 to match the installed CLI exactly,
+  which is a deliberate lag from the
+  [published releases](https://github.com/solana-foundation/anchor/releases).
+  `docs/architecture.md` section 8 records the release picture, the reason the
+  pin follows the CLI, and what an upgrade to 1.x or 2.0 would involve.
 
 ---
 

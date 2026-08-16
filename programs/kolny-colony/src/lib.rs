@@ -28,7 +28,7 @@ pub mod utils;
 
 use instructions::*;
 
-declare_id!("Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS");
+declare_id!("7whkmFfDcTyoJgf7jFGFmKNFMQn8NoreHnh2wZ9nWbsk");
 
 #[program]
 pub mod kolny_colony {

@@ -14,10 +14,16 @@ what happens when that capital is lost. The same realized numbers drive both.
 
 ## 1. Forager bond and slashing
 
-Every forager posts a bond to register, denominated in the vault's `base_mint`.
-The bond is skin in the game: it makes bad behavior and reckless loss expensive
-to the operator, and it is the first external capital used to make depositors
-whole when a forager loses beyond tolerance.
+Every forager posts a bond, denominated in the vault's `base_mint`. The bond is
+skin in the game: it makes bad behavior and reckless loss expensive to the
+operator, and it is the first external capital used to make depositors whole when
+a forager loses beyond tolerance.
+
+It is not posted at registration. `register_forager` opens the record with a zero
+bond and `top_up_bond` funds it afterwards, which is safe because a new forager
+is a Scout and a Scout receives no main-pool capital. The bond gates the two
+things that matter: promotion requires `bond >= min_bond`, and allocation
+capacity is bounded by the bond thereafter (section 1.1).
 
 ### 1.1 Bond sizing
 
@@ -74,8 +80,13 @@ together, and section 4.2 step 4 is where depositors take whatever remains.
 
 ### 1.3 Slash conditions
 
-A forager is slashed when any of the following fires. The runtime and the
-program evaluate them from committed, realized, on-chain state.
+A forager is slashed when any of the following fires. Every condition is
+evaluated from committed, realized, on-chain state. Today that evaluation is a
+call to the program's `slash_forager` instruction with a reason code; the
+`risk-cache` package that would detect the condition and raise the proposal
+automatically is a library with no host process yet
+(`architecture.md` section 3.2). Detection is therefore manual; the enforcement,
+the split and the accounting are not.
 
 - **Loss threshold.** The forager's current realized drawdown exceeds
   `dd_slash` (default 30 percent of its allocated capital), or a single epoch's
@@ -146,8 +157,14 @@ What isolation does and does not do, stated honestly:
 
 ## 3. Position limits
 
-Every forager has a position-limit profile, enforced pre-trade by
-forager-runtime and bounded per-epoch on-chain:
+Every forager has a position-limit profile. The design is two-layer: checked
+pre-trade by forager-runtime and bounded per-epoch on-chain. Only the second
+layer is live. `forager-runtime` is an implemented, tested library with no host
+process (`architecture.md` section 3.2), so **the pre-trade layer is not
+currently enforcing anything**, and what actually binds today is the program's
+own per-epoch bound plus the sub-account boundary of section 2. The limits below
+are stated as the profile; where a limit depends on the pre-trade layer, it is
+not yet enforced.
 
 - **Maximum allocation weight** `w_max` (default 20 percent of the main pool),
   the single-forager concentration cap from `allocation-spec.md`.
@@ -177,10 +194,14 @@ forager's own capital before they reach depositors.
 1. A cut of realized colony profit, `cache_accrual` (default 10 percent of
    realized profit), routed to the cache until the reserve target is met.
 2. The cache-bound half of every slashed bond (section 1.4).
-3. Optional `$KOLNY` staked into the cache by holders who choose to underwrite
-   colony risk in exchange for a premium share. Stakers are paid from accrual and
-   are first to absorb a shortfall among cache sources, which is disclosed to
-   them plainly.
+3. Voluntary contributions in `base_mint` through the permissionless
+   `fund_cache` instruction, which any address may call. Stated plainly, because
+   the alternative is easy to assume: a contribution buys **no** premium, no
+   claim on the cache and no redemption right. It raises `balance` and nothing
+   else, and it is deliberately excluded from `total_accrued`, which counts only
+   what settlement routed in from realized profit. There is no staking
+   instruction and no underwriter role in the program; if either is ever added it
+   will be specified here first.
 
 ### 4.2 Loss-absorption waterfall
 
@@ -202,8 +223,12 @@ loss reduces depositor share value. KOLNY never claims otherwise.
 The cache targets a reserve ratio `cache_reserve_target` (default 4 percent of
 value under colony). Below target, profit routing to the cache increases and new
 risk-taking capacity is tightened. Above target, surplus can flow to `$KOLNY`
-buyback-and-burn, which is the token's link to colony performance. The reserve
-ratio, the cache balance, and total burned are public at all times.
+buyback-and-burn, which is the token's link to colony performance. Stated as
+plainly as the mechanism it replaces: **the buyback is not a program
+instruction.** The colony program holds no DEX route and reads no price, so a
+buyback is a treasury action taken outside it, and the on-chain record of it is
+the resulting transfer, not a colony instruction. The reserve ratio, the cache
+balance, and total burned are public at all times.
 
 ### 4.4 Depletion scenario (disclosed, not hidden)
 
@@ -227,8 +252,9 @@ indexer and shown continuously, never buried:
   realized return, full slash history, bond amount and current collateralization,
   days active, and strategy-type tag.
 - **Per colony:** aggregate realized return, current aggregate drawdown, cache
-  balance and reserve ratio, total bond slashed and total `$KOLNY` burned, and
-  the count of foragers in each lifecycle state.
+  balance and reserve ratio, total bond slashed and total bond burned (in
+  `base_mint`, the figure the program keeps as `total_burned`), and the count of
+  foragers in each lifecycle state.
 
 The header trust indicators show realized on-chain figures only. A backtest or a
 projected return never appears in a trust indicator or a header.
@@ -279,7 +305,7 @@ directs capital.
 
 | Parameter | On-chain field | Type | Default | Range | Meaning |
 |---|---|---|---|---|---|
-| Minimum bond | `min_bond_tokens` | u64 | project-set | > 0 | Floor bond in `$KOLNY` |
+| Minimum bond | `min_bond` | u64 | project-set | > 0 | Floor bond, in `base_mint` base units |
 | Bond ratio | `bond_ratio_bps` | u16 | 1000 | 500..5000 | Bond as fraction of allocation; 10% |
 | Bond haircut | `bond_haircut_bps` | u16 | 3000 | 1000..7000 | Share of a posted bond not recognized as allocation capacity, because the bond sits in the traded sub-account and may already be partly consumed since the last settlement. Not a price haircut; no oracle is read. Tightens the requirement: 0.10 ratio at 30% becomes 14.3% of allocation |
 | Probation drawdown | `dd_probation_bps` | u16 | 1500 | 500..4000 | Current drawdown to enter probation; 15% |

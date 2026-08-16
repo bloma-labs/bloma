@@ -8,7 +8,7 @@ skip-lint = false
 # user approval together with a user-supplied deploy keypair. Do not add
 # [programs.devnet] or [programs.mainnet] sections here.
 [programs.localnet]
-kolny_colony = "Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS"
+kolny_colony = "7whkmFfDcTyoJgf7jFGFmKNFMQn8NoreHnh2wZ9nWbsk"
 
 [registry]
 url = "https://api.apr.dev"

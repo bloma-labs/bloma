@@ -59,6 +59,11 @@ The rule of thumb: if a bug in a component could silently move or steal capital,
 that component's authority lives on-chain. Everything else is off-chain and is
 treated as an untrusted proposer whose output is checked before it takes effect.
 
+This table is a boundary map, not a deployment status. It says where each concern
+*belongs*; it does not claim every off-chain row has a process running it today.
+Section 3.2 carries the status of each component, and three of them are libraries
+without a host. Read the two together before treating a row as live.
+
 ---
 
 ## 3. Component map
@@ -66,12 +71,12 @@ treated as an untrusted proposer whose output is checked before it takes effect.
 ```mermaid
 %%{init: {'theme':'base','themeVariables':{'background':'#0E0F0C','mainBkg':'#5C4B3A','primaryColor':'#5C4B3A','primaryTextColor':'#E4E0D2','primaryBorderColor':'#B6E04A','secondaryColor':'#3E5A44','secondaryTextColor':'#E4E0D2','secondaryBorderColor':'#B6E04A','tertiaryColor':'#1A1712','tertiaryTextColor':'#E4E0D2','lineColor':'#B6E04A','textColor':'#E4E0D2','nodeTextColor':'#E4E0D2','clusterBkg':'#161310','clusterBorder':'#5C4B3A','edgeLabelBackground':'#0E0F0C','fontFamily':'Public Sans, sans-serif'}}}%%
 flowchart TB
-  subgraph OFFCHAIN["Off-chain services"]
+  subgraph OFFCHAIN["Off-chain components"]
     direction TB
     RT["forager-runtime<br/>strategy execution + limits + perf"]
     PE["pheromone-engine<br/>evaporation + deposit + weights"]
     SS["scout-sandbox<br/>probation + promotion"]
-    RC["risk-cache service<br/>drawdown watch + slash proposals"]
+    RC["risk-cache<br/>drawdown watch + slash proposals"]
     IX["indexer API (service)<br/>Trail Board read model"]
   end
   subgraph ONCHAIN["Anchor program (Solana mainnet)"]
@@ -109,12 +114,23 @@ flowchart TB
   class USER,WEB,CLI val;
 ```
 
+The diagram shows the intended topology, so every edge is drawn whether or not
+something is currently traversing it. Of the off-chain boxes, `pheromone-engine`
+and the indexer API are live; `forager-runtime`, `scout-sandbox` and
+`risk-cache` are implemented libraries that no process runs yet, so the edges
+leaving them are design, not traffic. Section 3.2 states this per component.
+
 ### 3.1 On-chain: the Anchor program
 
 - **Forager Registry** holds one record per forager: operator authority, bond
   amount and escrow, lifecycle status (Scout, Active, Probation, Slashed,
   Exited), the address of its isolated sub-account, and its position-limit
-  profile. Registration requires a `$KOLNY` bond. See `risk-spec.md` section 1.
+  profile. The bond is posted in the vault's `base_mint`, the same asset as
+  deposits, and it is **not** posted at registration: `register_forager` opens
+  the record with a zero bond, `open_forager_vault` creates the sub-account, and
+  `top_up_bond` funds the bond. A forager receives no main-pool capital until it
+  is promoted, and promotion checks the bond against `min_bond`. See
+  `risk-spec.md` section 1.
 - **Brood Vault** is the single entry point for depositors. A deposit of the
   base asset mints vault shares proportional to net asset value. The vault holds
   un-deployed base asset and is the accounting root; forager sub-accounts are
@@ -136,28 +152,52 @@ flowchart TB
 - The program **IDL is published** to the public repository so any
   client, the CLI, and the Agent SDK build against a pinned interface.
 
-### 3.2 Off-chain: the services
+### 3.2 Off-chain: the components
 
-- **forager-runtime** hosts each forager's strategy against its isolated
-  sub-account. It enforces position limits before every trade, records fills,
-  nets fees and slippage and funding, and at each epoch close it submits a
-  signed realized-performance commit to the Allocation Engine. It is the
-  boundary between "an agent wants to trade" and "the sub-account is allowed to".
-- **pheromone-engine** is the reference implementation of the allocation math.
-  It reads on-chain committed inputs and config, recomputes pheromone and
-  weights in the same fixed-point arithmetic the program uses, and proposes the
-  epoch update. It is an untrusted proposer: the program verifies its output.
-- **scout-sandbox** manages probationary foragers. New foragers receive small,
-  fixed scout tickets funded from the exploration budget and are evaluated for
-  promotion once they clear the minimum-epochs, minimum-trades, and
-  performance bars. See `allocation-spec.md` section 6.
-- **risk-cache service** watches per-forager drawdown and rule compliance,
-  raises slash proposals, and manages cache accrual and reserve-ratio targets.
-- **indexer API** (the `service` app) reads chain state and
-  serves the read model consumed by the web Trail Board, the
-  `kolny-cli`, and the Agent SDK: current weights, per-forager realized
-  performance, drawdown, pheromone decay curves, slash history, and epoch
-  history.
+Read the status line on each entry before the description. Two of these are
+running today and three are libraries with no host process yet, and the
+difference matters: a library that computes a slash proposal correctly is not the
+same claim as a daemon that is watching for one right now. The logic below is
+implemented and tested in every case; what varies is whether anything is
+currently executing it.
+
+- **forager-runtime** -- *library, no running host.* Defines the boundary between
+  "an agent wants to trade" and "the sub-account is allowed to": position-limit
+  checks applied per trade, fill recording, netting of fees and slippage and
+  funding, and the epoch-close realized-performance commit to the Allocation
+  Engine. The package is implemented and its tests pass, but nothing imports it
+  and no process runs it, so no position limit is being enforced off-chain today
+  and no commit is being submitted. Until a host exists, the enforcement that is
+  actually live is the program's own per-epoch bound (section 2).
+- **pheromone-engine** -- *in use.* The reference implementation of the
+  allocation math. It reads on-chain committed inputs and config, recomputes
+  pheromone and weights in the same fixed-point arithmetic the program uses, and
+  proposes the epoch update. It is an untrusted proposer: the program verifies
+  its output. This is the one off-chain package with real consumers, including a
+  vendored copy inside the web application.
+- **scout-sandbox** -- *library, no running host.* Decides the probationary
+  lifecycle: ticket sizing against the exploration budget, the promotion
+  evaluation, demotion and re-entry, and the cold-start split. Promotion requires
+  every bar in `allocation-spec.md` section 6 -- scout tenure, epochs that closed
+  with a realized result, non-negative cumulative realized PnL, a bond at or
+  above `min_bond`, and the cumulative risk-adjusted performance bar. Activity is
+  counted in **settled epochs, not trades**, because the chain observes
+  sub-account balances at settlement and never individual fills. The decision
+  functions are implemented and tested; the on-chain `promote_forager` and
+  `fund_scout` instructions are what actually move a forager and capital today,
+  and this package is a mirror of them with no caller.
+- **risk-cache** -- *library, no running host.* Computes drawdown against the
+  slash thresholds, the slash split between burn and cache, cache accrual and the
+  reserve-ratio target. Written as a service in earlier drafts of this document;
+  it is a library, and no process is watching drawdown or raising slash proposals
+  right now. Slashing today is an on-chain instruction an authority calls
+  (`slash_forager`), not an automated pipeline.
+- **indexer API** (the `service` app) -- *running.* Reads chain
+  state and serves the read model consumed by the web Trail Board, the
+  `kolny-cli`, and the Agent SDK: current weights, per-forager
+  realized performance, drawdown, pheromone decay curves, slash history, and
+  epoch history. It is deployed and responding; what it can show is bounded by
+  what is initialized on-chain, not by the read model.
 
 ---
 
@@ -189,6 +229,13 @@ sequenceDiagram
   AE-->>IX: State readable
   IX-->>D: Trail Board: weights, realized perf, drawdown, decay
 ```
+
+This is the designed epoch, not a trace of one that has run. The `RT` lane is
+`forager-runtime`, which has no host process yet (section 3.2), so the
+realized-performance commit shown here is not being submitted by anything today.
+The on-chain half of the loop -- `begin_settlement`, `settle_forager`,
+`finalize_settlement`, `rebalance_forager` -- is implemented and is what would
+consume that commit.
 
 The loop that gives the system its name: realized performance from epoch `e`
 becomes the pheromone deposit that shapes weights for epoch `e+1`. Capital flows
@@ -258,6 +305,11 @@ stateDiagram-v2
   the forager must recover or be slashed.
 - **Slashed / Exited** withdraws capital back to the vault and settles the bond.
 
+Vocabulary, so a reader can find each state in the code: the terminal state is
+written `Exited` here and `"exited"` in the off-chain packages, but the on-chain
+constant is `STATUS_RETIRED` and the instruction that reaches it is
+`retire_forager`. The other four names match on both sides.
+
 Full trigger thresholds and bond mechanics are in `risk-spec.md`.
 
 ---
@@ -280,11 +332,23 @@ projected figure appears there.
 
 ## 8. Implementation note: Anchor version
 
-The concept material references "Anchor 0.31". As of 2026-08 that is two major
-versions behind: the latest published stable `anchor-lang` is **1.1.2**, and
-**2.0.0-rc.1** is in release-candidate (verified against the crates.io registry
-and the GitHub releases page; see `references.md`). The program should pin an
-explicit, current version in `Anchor.toml` rather than 0.31, and the header
-trust indicator string should be updated to match whatever is pinned. Pinning is
-mandatory regardless of which version is chosen, so that the published IDL, the
-SDK, and the CLI all build against one interface.
+The registry survey behind this section still stands: as of 2026-08 the latest
+published stable `anchor-lang` is **1.1.2** and **2.0.0-rc.1** is in
+release-candidate (verified against the crates.io registry and the GitHub
+releases page; see `references.md`).
+
+**What the program actually pins is 0.31.1**, in both
+`programs/kolny-colony/Cargo.toml` entries (`anchor-lang` and `anchor-spl`). That
+is a deliberate decision recorded here rather than a version left un-upgraded.
+The installed toolchain is `anchor-cli 0.31.1`, and a CLI that does not match the
+library is not a cosmetic mismatch: a 0.31 CLI against a 0.30 library produced an
+IDL `TypeNotFound` failure during this program's bring-up. Matching the library
+to the CLI exactly is what removes that class of failure, so the pin follows the
+CLI rather than the newest release.
+
+The rule that does not change is that the version is **pinned explicitly**, so
+the published IDL, the SDK, and the CLI all build against one interface. Moving
+to 1.x or 2.0 is a toolchain upgrade -- CLI first, then the library, then a
+regenerated IDL and a re-derived program ID check -- and it is tracked as future
+work, not as a pending edit to this document. The header trust indicator string
+shows whatever is pinned, which today reads 0.31.1.

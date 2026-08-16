@@ -142,17 +142,21 @@ https://www.alchemy.com/blog/how-to-build-solana-ai-agents-in-2026 `[verified]`.
 **Anchor releases (Solana Foundation).**
 https://github.com/solana-foundation/anchor/releases `[verified]`.
 - Finding: the latest published stable Anchor release is 1.1.2 (June 2026).
-- Maps to: the version note in `architecture.md` section 8 and `security.md`
-  section 4. The concept material's "Anchor 0.31" is two major versions behind;
-  the program should pin a current version.
+- Maps to: the version note in `architecture.md` section 8. The program pins
+  0.31.1 rather than the latest release, to match the installed `anchor-cli`
+  exactly; section 8 records why and what an upgrade would involve. This entry
+  is what establishes that 0.31.1 is a deliberate lag from a known current
+  version, not an unexamined default.
 
 **crates.io registry, `anchor-lang`.**
 https://crates.io/api/v1/crates/anchor-lang `[verified]`.
 - Finding: `max_stable_version` is 1.1.2 and the newest published version is
   2.0.0-rc.1 (release candidate, 2026-08). This is the authoritative registry
   confirmation of the release-page finding above.
-- Maps to: same version note. Pin an explicit, current version in `Anchor.toml`;
-  decide between the latest stable and the release candidate deliberately.
+- Maps to: same version note, and the confirmation that the choice was made with
+  the full release picture in view. The decision recorded in
+  `architecture.md` section 8 is CLI-matched 0.31.1 now, with 1.x or 2.0 treated
+  as a toolchain upgrade rather than a dependency bump.
 
 ---
 

@@ -509,13 +509,16 @@ also a correctness control, since arithmetic here is financial.
 
 ## Deployment
 
-**This program has not been deployed, and nothing here deploys it.**
+**Deployed to devnet. Not deployed to mainnet, and nothing here deploys it.**
 
 No CI job, npm script, or hook in this package sends a transaction to any
 cluster. `Anchor.toml` pins `cluster = "Localnet"` and points `wallet` at a
 path that does not exist, rather than at the shared `~/.config/solana/id.json`
 -- sharing that file would make one upgrade authority own several unrelated
-programs.
+programs. The devnet deployment was made by naming the cluster and a
+project-scoped keypair on the command line, not by changing those defaults, and
+the defaults were left alone precisely so that no later command inherits a
+cluster nobody asked it for.
 
 Deploying requires an explicit decision from the project owner: a
 project-scoped deploy keypair, its pubkey, an approved cluster, and a funded
@@ -524,20 +527,38 @@ balance.
 The TypeScript tests under `tests/` are written but not wired to run: they need
 a local validator, which is a deliberate, separate decision.
 
-### The program ID is a placeholder
+### The program ID is real, and every PDA derives from it
 
-`declare_id!` currently holds `Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS`,
-which is a well-known Anchor example key and **is not this program's address**.
+`declare_id!` holds `7whkmFfDcTyoJgf7jFGFmKNFMQn8NoreHnh2wZ9nWbsk`, the address
+this program is deployed at on devnet. `[programs.localnet]` in `Anchor.toml`
+and `address` in [`idl/kolny_colony.json`](../../idl/kolny_colony.json) hold the
+same value, so building this source produces a program whose derived addresses
+agree with the published interface. Earlier revisions shipped the Anchor example
+key here instead and did not.
 
-This matters more than it looks. **Every PDA in this program is derived from the
-program ID.** Deploying under a real keypair without replacing the placeholder
-first means the addresses the program derives at runtime and the addresses the
-front end, the SDK and the indexer derive from the IDL are computed from
-different program IDs, so nothing lines up: accounts appear missing, and
-initialization would create a second, unreachable set of accounts. It fails
-confusingly rather than loudly.
+That agreement is the whole point of the section, because **every PDA in this
+program is derived from the program ID.** Not one seed in the table above
+avoids it. If the ID a program is compiled with and the ID a client derives from
+differ, the two sides compute different addresses for the same account and
+nothing rejects the mismatch: the program initializes a second, unreachable set
+of accounts while the front end, the SDK and the indexer read the first set as
+missing. It fails confusingly rather than loudly.
 
-Replacement is a manual step, run once, with the owner present:
+Two things follow from that.
+
+**A mainnet deployment gets a new program ID, so every address in the IDL
+changes.** The devnet ID above is not the mainnet ID and will not become it.
+`colony_config`, every `forager_state`, every `depositor_position`, every vault:
+each one derives again from the new ID and lands somewhere else. Devnet state
+does not carry across, and anything holding an address copied out of this
+repository breaks at that moment. Derive addresses at runtime from the IDL
+instead of storing them.
+
+**Changing the ID is a manual step, run once, with the owner present.** Setting
+it changes what the compiled program answers to; it does not deploy anything.
+The `Localnet` pin and the missing wallet path in `Anchor.toml` are untouched by
+it, and a deploy still needs what it needed before: the owner's project-scoped
+keypair, its pubkey, an approved cluster and a funded balance.
 
 ```bash
 # 1. The owner supplies the program keypair path. Do not generate one here.
@@ -558,15 +579,22 @@ python3 -c "import json;print(json.load(open('target/idl/kolny_colony.json'))['a
 
 Checklist, all four required:
 
-- [ ] `declare_id!` in `src/lib.rs` is the real program ID
+- [ ] `declare_id!` in `src/lib.rs` is the ID being deployed to
 - [ ] `[programs.localnet]` in `Anchor.toml` matches it
 - [ ] `anchor build` re-run, and `target/idl/kolny_colony.json` `address` matches
 - [ ] PDAs re-derived and compared against the front end and SDK, using the
       table in this README, before any account is initialized
 
+The checklist is not aspirational here. As this tree stands, the two `grep`
+commands in step 4 print the devnet ID, and so does the published copy at
+`idl/kolny_colony.json`; the `target/` path named in step 4 appears once
+`anchor build` has run.
+
 `scripts/set-program-id.sh` is deliberately **not** wired into any build, test,
-hook or CI job. It edits source and must be a decision someone makes, not a side
-effect of running a build.
+hook or CI job, and nothing in this repository runs it. It edits source and must
+be a decision someone makes, not a side effect of running a build. It also
+refuses the Anchor example key as an argument, which is why that key still
+appears in the script and nowhere else.
 
 ## Known limitations
 

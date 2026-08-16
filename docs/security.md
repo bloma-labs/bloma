@@ -135,6 +135,12 @@ balance, not taken on the operator's word**:
 
 ## 5. Known attack surface
 
+Four surfaces are described below, each with the mitigation actually implemented
+rather than an intention. Where a threat was removed by a design change instead
+of a defense, that is said outright (section 5.4), because a defense listed
+against a threat that no longer exists reads as coverage the program does not
+have.
+
 ### 5.1 Pheromone grinding (manufacturing performance)
 
 An operator trades with itself or a colluding counterparty to manufacture

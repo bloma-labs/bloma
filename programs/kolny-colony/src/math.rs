@@ -791,15 +791,21 @@ mod tests {
         // (name, perf per epoch in bps, exact tau at the start of e2/e3/e4)
         //
         // The expected values are exact FP6, independently confirmed at 60-digit
-        // precision, not the three-decimal figures the document prints. Fourteen
-        // of the document's fifteen cells agree with these exactly. The one that
-        // does not is forager E at epoch 3: the document's own worked steps
-        // round the intermediate `0.8 * 0.603` to `0.483` instead of `0.4824`,
-        // and reach `0.483 + 0.604 = 1.087`. Carried without that intermediate
-        // rounding the value is 1.086468, which prints as 1.086. That is an
-        // artifact of the document's presentation, not a disagreement about the
-        // model, and it is exactly the kind of thing that gets mistaken for an
-        // implementation bug -- hence this note.
+        // precision, not the three-decimal figures the document prints. All
+        // fifteen of the document's cells agree with these exactly.
+        //
+        // They did not always. The document used to reach `1.087` for forager E
+        // at epoch 3, because its worked steps rounded the intermediate
+        // `0.8 * 0.603` to `0.483` instead of `0.4824`. Carried without that
+        // intermediate rounding the value is 1.086468, which prints as 1.086,
+        // and the document has since been corrected to 1.086. The disagreement
+        // was in how the document presented the arithmetic, never in the model.
+        //
+        // Compare against the FP6 integers here, not the printed three-decimal
+        // table. A one-ulp error in `tanh` moves these integers while leaving
+        // both the three-decimal figures and the epoch-3 capital split looking
+        // correct, so those two are unable to catch it -- which is how a shared
+        // lookup-table approximation once survived review.
         let foragers: [(&str, [i64; 3], [u64; 3]); 5] = [
             ("A", [1_500, 1_200, 1_000], [1_705_148, 2_197_773, 2_519_812]),
             ("B", [1_000, 500, 0], [1_561_594, 1_711_392, 1_369_113]),
