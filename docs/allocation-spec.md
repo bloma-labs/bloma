@@ -191,8 +191,10 @@ budget**, the on-chain analog of the exploration term in a bandit policy.
   bond, so exploration never risks a large slice of principal.
 - A scout is promoted to Active when it clears all of: at least
   `promote_min_epochs` scout epochs, of which at least
-  `promote_min_realized_epochs` closed with a non-zero realized result, and
-  cumulative risk-adjusted realized performance at or above
+  `promote_min_realized_epochs` closed with a non-zero realized result,
+  cumulative realized PnL at or above zero, a bond that still meets the floor
+  for the allocation it would receive, and cumulative risk-adjusted realized
+  performance at or above
   `promote_perf_bar`. On promotion its pheromone is seeded from its scout-phase
   performance, capped at `promote_tau_seed_cap` so a scout cannot enter the main
   pool at the top of the trail.
