@@ -78,6 +78,12 @@ pub struct InitColonyParams {
     // -- risk cache ----------------------------------------------------------
     pub cache_accrual_bps: u16,
     pub cache_reserve_target_bps: u16,
+
+    // -- admission burn ------------------------------------------------------
+    /// $KOLNY destroyed per registration, in base units. A count, not a value.
+    /// The mint it destroys is NOT settable here: `kolny_mint` is written once
+    /// by `set_kolny_mint` and an authority cannot repoint it afterwards.
+    pub admission_burn_amount: u64,
 }
 
 /// A partial edit to the live configuration.
@@ -126,6 +132,9 @@ pub struct ConfigPatch {
     // -- risk cache ----------------------------------------------------------
     pub cache_accrual_bps: Option<u16>,
     pub cache_reserve_target_bps: Option<u16>,
+
+    // -- admission burn ------------------------------------------------------
+    pub admission_burn_amount: Option<u64>,
 }
 
 /// Inclusive `[min, max]` bound check against the published range.
@@ -269,6 +278,20 @@ impl InitColonyParams {
             MAX_CACHE_RESERVE_TARGET_BPS
         );
 
+        // -- admission burn --------------------------------------------------
+        // The bound that matters here is the ceiling, and it lives in
+        // `constants.rs` rather than in a config field precisely so the
+        // authority cannot raise its own limit. An authority free to set any
+        // admission it liked could price entry into a ban, or into extraction;
+        // inside the published band it can only track a token price that moved.
+        // The floor exists so admission can never be free, which would leave
+        // registration succeeding while nothing was destroyed.
+        in_range!(
+            self.admission_burn_amount,
+            MIN_ADMISSION_BURN_BASE_UNITS,
+            MAX_ADMISSION_BURN_BASE_UNITS
+        );
+
         // -- ordering invariants ---------------------------------------------
         // The published ranges of these pairs overlap, so each value can be
         // individually legal while the pair is nonsense. Both orderings come
@@ -344,6 +367,8 @@ impl InitColonyParams {
 
             cache_accrual_bps: config.cache_accrual_bps,
             cache_reserve_target_bps: config.cache_reserve_target_bps,
+
+            admission_burn_amount: config.admission_burn_amount,
         }
     }
 
@@ -382,6 +407,12 @@ impl InitColonyParams {
 
         config.cache_accrual_bps = self.cache_accrual_bps;
         config.cache_reserve_target_bps = self.cache_reserve_target_bps;
+
+        // Only the amount. `kolny_mint` and `total_kolny_burned` are state, not
+        // parameters, and are deliberately unreachable from this path: one is
+        // written once by `set_kolny_mint` and the other only ever grows by what
+        // a burn actually destroyed.
+        config.admission_burn_amount = self.admission_burn_amount;
     }
 }
 
@@ -474,6 +505,10 @@ impl ConfigPatch {
         if let Some(v) = self.cache_reserve_target_bps {
             base.cache_reserve_target_bps = v;
         }
+
+        if let Some(v) = self.admission_burn_amount {
+            base.admission_burn_amount = v;
+        }
     }
 }
 
@@ -555,6 +590,16 @@ pub fn initialize_colony(ctx: Context<InitializeColony>, params: InitColonyParam
     // exists so the unlevered rule is readable on-chain by anyone.
     config.max_leverage_x = MAX_LEVERAGE_X;
 
+    // The $KOLNY mint is not known at genesis and may not exist yet, so it
+    // starts unset and `set_kolny_mint` writes it once. Until then
+    // `register_forager` refuses to run: admission is priced in a token the
+    // colony cannot yet name, and the alternative -- admitting foragers and
+    // skipping the burn -- would leave a colony that looks like it is burning
+    // and is not. `admission_burn_amount` itself is set by `params` below and
+    // is range-checked at genesis exactly as it is on every later edit.
+    config.kolny_mint = Pubkey::default();
+    config.total_kolny_burned = 0;
+
     config.epoch_phase = PHASE_OPEN;
     config.paused = false;
     config.bump = config_bump;
@@ -610,6 +655,130 @@ pub fn update_config(ctx: Context<UpdateConfig>, patch: ConfigPatch) -> Result<(
     emit!(ConfigUpdated {
         authority: config.authority,
         epoch: config.epoch,
+    });
+
+    Ok(())
+}
+
+// ---------------------------------------------------------------------------
+// 2b. set_kolny_mint
+// ---------------------------------------------------------------------------
+
+#[derive(Accounts)]
+pub struct SetKolnyMint<'info> {
+    #[account(
+        mut,
+        seeds = [SEED_COLONY],
+        bump = config.bump,
+        has_one = authority @ ColonyError::NotAuthority,
+    )]
+    pub config: Box<Account<'info, ColonyConfig>>,
+
+    /// The $KOLNY mint.
+    ///
+    /// Taken as a real mint account rather than a bare `Pubkey` argument on
+    /// purpose. This write happens once and can never be undone, so a mistyped
+    /// address would leave admission pointing at nothing and registration
+    /// permanently refused. Passing the account makes the token program's own
+    /// layout the check: an address that is not an initialized mint cannot
+    /// deserialize here, so the typo fails now rather than at the first
+    /// registration.
+    pub kolny_mint: Box<InterfaceAccount<'info, Mint>>,
+
+    pub authority: Signer<'info>,
+}
+
+/// Name the mint that admission destroys. Once.
+///
+/// Separate from `update_config` because the $KOLNY mint does not exist yet:
+/// the program has to be deployable before the token is issued, and this is the
+/// one write that closes that gap afterwards.
+///
+/// One-way by construction. A repointable mint would let an authority swap the
+/// burned asset for a worthless one it controls while registration kept
+/// succeeding, which turns the admission gate into theatre and makes the
+/// published burn figure meaningless. Irreversibility is what makes the
+/// on-chain mint worth reading. The cost of that choice, stated plainly: a mint
+/// set to the wrong address cannot be corrected without a program upgrade, and
+/// the account constraint above exists to make that address impossible to
+/// mistype into something that is not a mint at all.
+///
+/// What this instruction is NOT: it does not price admission and it does not
+/// touch any allocation input. The amount lives in `admission_burn_amount` and
+/// moves only inside the published band.
+pub fn set_kolny_mint(ctx: Context<SetKolnyMint>) -> Result<()> {
+    require!(
+        !ctx.accounts.config.kolny_mint_is_set(),
+        ColonyError::KolnyMintAlreadySet
+    );
+
+    // What the account type already guaranteed before this line ran, so the
+    // checks below do not repeat it (an unreachable `require!` reads like a
+    // live defence and is worse than none):
+    //
+    //   - the account EXISTS. `InterfaceAccount::try_from` rejects an account
+    //     owned by the system program with zero lamports as
+    //     `AccountNotInitialized`, which is exactly what a not-yet-launched
+    //     address looks like on chain
+    //     (anchor-lang `accounts/interface_account.rs:220`).
+    //   - it is owned by SPL Token or Token-2022 (`check_owner` against
+    //     anchor-spl `token_interface.rs:12`), so a wallet or a PDA is refused.
+    //   - it really is a MINT, not a token account: `StateWithExtensions::
+    //     <Mint>::unpack` -- the checked variant -- rejects a wrong data length
+    //     and an uninitialized mint (anchor-spl `token_interface.rs:46`).
+    //
+    // That covers "is this a real mint that exists". It does not cover whether
+    // this mint can carry the claims the product makes about it, which is what
+    // `check_admission_mint` decides.
+    let decimals = ctx.accounts.kolny_mint.decimals;
+    let mint_authority_is_none = ctx.accounts.kolny_mint.mint_authority.is_none();
+    let freeze_authority_is_none = ctx.accounts.kolny_mint.freeze_authority.is_none();
+
+    if let Some(rejection) =
+        check_admission_mint(decimals, mint_authority_is_none, freeze_authority_is_none)
+    {
+        return Err(match rejection {
+            // The admission constants are base units computed at
+            // `KOLNY_DECIMALS`. At other decimals every one of them silently
+            // means a different number of tokens -- at 9 decimals the 100,000
+            // $KOLNY admission would destroy 100.
+            //
+            // This does NOT replace reading the chain. `utils::burn_from_user`
+            // still hands `burn_checked` the decimals off the mint account.
+            // This check exists so the CONSTANTS cannot be wrong; that one
+            // exists so the CPI cannot be. Collapsing the two into "we checked
+            // it, so we can hard-code it" is how the thousand-fold bug comes
+            // back.
+            AdmissionMintRejection::Decimals => ColonyError::KolnyMintDecimalsMismatch.into(),
+            // Refused rather than recorded. The product says burning reduces
+            // supply permanently; with a live mint authority that sentence is
+            // false, and a program that binds anyway lets the false sentence
+            // ship. Failing here is the cheap failure: pre-mainnet, a rebuild.
+            AdmissionMintRejection::MintAuthorityLive => {
+                ColonyError::KolnyMintAuthorityNotRevoked.into()
+            }
+            // Same shape, different promise: a frozen account cannot burn, so a
+            // live freeze authority makes admission revocable per operator.
+            AdmissionMintRejection::FreezeAuthorityLive => {
+                ColonyError::KolnyMintFreezeAuthorityNotRevoked.into()
+            }
+        });
+    }
+
+    let kolny_mint = ctx.accounts.kolny_mint.key();
+
+    let config: &mut ColonyConfig = &mut ctx.accounts.config;
+    config.kolny_mint = kolny_mint;
+
+    // Published even though all three were just required, so the claims that
+    // rest on them stay checkable from the event stream without re-reading the
+    // mint. Both authorities are revoked at this point, so neither can return.
+    emit!(KolnyMintSet {
+        authority: config.authority,
+        kolny_mint,
+        decimals,
+        mint_authority_is_none,
+        freeze_authority_is_none,
     });
 
     Ok(())
@@ -1081,6 +1250,8 @@ mod tests {
 
             cache_accrual_bps: DEFAULT_CACHE_ACCRUAL_BPS,
             cache_reserve_target_bps: DEFAULT_CACHE_RESERVE_TARGET_BPS,
+
+            admission_burn_amount: DEFAULT_ADMISSION_BURN_BASE_UNITS,
         }
     }
 
@@ -1118,6 +1289,8 @@ mod tests {
 
             cache_accrual_bps: None,
             cache_reserve_target_bps: None,
+
+            admission_burn_amount: None,
         }
     }
 
@@ -1250,6 +1423,116 @@ mod tests {
         assert_eq!(merged.w_max_bps, DEFAULT_W_MAX_BPS);
         assert_eq!(merged.dd_slash_bps, DEFAULT_DD_SLASH_BPS);
         assert!(merged.validate().is_ok());
+    }
+
+    /// The admission burn is bounded at both ends, and neither bound is
+    /// reachable by the authority.
+    ///
+    /// The ceiling is what makes the parameter safe to leave mutable at all:
+    /// an authority that could raise it without limit could price entry into a
+    /// ban, or into extraction. The floor is what makes the burn real: at zero,
+    /// registration would keep succeeding while nothing was destroyed, and the
+    /// colony would look identical to one that was burning.
+    #[test]
+    fn the_admission_burn_cannot_leave_its_published_band() {
+        // Free admission is unrepresentable.
+        let mut p = published_defaults();
+        p.admission_burn_amount = 0;
+        assert!(
+            p.validate().is_err(),
+            "a zero admission burn must be rejected: registration would succeed \
+             while destroying nothing"
+        );
+
+        // The ceiling holds, including one unit past it.
+        let mut p = published_defaults();
+        p.admission_burn_amount = MAX_ADMISSION_BURN_BASE_UNITS + 1;
+        assert!(p.validate().is_err());
+
+        let mut p = published_defaults();
+        p.admission_burn_amount = u64::MAX;
+        assert!(p.validate().is_err());
+
+        // Both endpoints and the default are legal, so the band is not empty
+        // and the rejections above are the bound firing rather than everything
+        // failing for some unrelated reason.
+        for amount in [
+            MIN_ADMISSION_BURN_BASE_UNITS,
+            DEFAULT_ADMISSION_BURN_BASE_UNITS,
+            MAX_ADMISSION_BURN_BASE_UNITS,
+        ] {
+            let mut p = published_defaults();
+            p.admission_burn_amount = amount;
+            assert!(
+                p.validate().is_ok(),
+                "{} sits inside the published band and must be accepted",
+                amount
+            );
+        }
+
+        // The published default is inside its own band. A default outside it
+        // would make genesis with the documented parameters impossible.
+        assert!(MIN_ADMISSION_BURN_BASE_UNITS <= DEFAULT_ADMISSION_BURN_BASE_UNITS);
+        assert!(DEFAULT_ADMISSION_BURN_BASE_UNITS <= MAX_ADMISSION_BURN_BASE_UNITS);
+    }
+
+    /// `update_config` is the only path that can move the amount, and it runs
+    /// through the same gate genesis used, so the ceiling is not something the
+    /// authority can step over after launch.
+    #[test]
+    fn an_authority_cannot_patch_the_admission_burn_past_the_ceiling() {
+        let mut patch = empty_patch();
+        patch.admission_burn_amount = Some(MAX_ADMISSION_BURN_BASE_UNITS + 1);
+
+        let mut merged = published_defaults();
+        patch.overlay(&mut merged);
+        assert!(merged.validate().is_err());
+
+        // Control: the same patch shape inside the band is accepted, so the
+        // rejection above is the bound and not the patch mechanism failing.
+        let mut patch = empty_patch();
+        patch.admission_burn_amount = Some(MAX_ADMISSION_BURN_BASE_UNITS);
+
+        let mut merged = published_defaults();
+        patch.overlay(&mut merged);
+        assert_eq!(merged.admission_burn_amount, MAX_ADMISSION_BURN_BASE_UNITS);
+        assert!(merged.validate().is_ok());
+
+        // And an untouched patch leaves it where it was.
+        let mut merged = published_defaults();
+        empty_patch().overlay(&mut merged);
+        assert_eq!(merged.admission_burn_amount, DEFAULT_ADMISSION_BURN_BASE_UNITS);
+    }
+
+    /// The mint is state, not a parameter: no patch can reach it, and no
+    /// parameter snapshot carries it. The only writer is `set_kolny_mint`.
+    #[test]
+    fn the_kolny_mint_is_not_reachable_from_a_config_patch() {
+        let mut config = ColonyConfig::default();
+        published_defaults().store_into(&mut config);
+        assert_eq!(
+            config.kolny_mint,
+            Pubkey::default(),
+            "storing parameters must not write the mint"
+        );
+
+        config.kolny_mint = Pubkey::new_from_array([4u8; 32]);
+        config.total_kolny_burned = 12_345;
+
+        // A full parameter round trip -- snapshot, overlay, store -- must leave
+        // both untouched. `store_into` writes every parameter it knows about,
+        // so if the mint or the counter were ever added to that set this would
+        // reset them.
+        let mut merged = InitColonyParams::from_config(&config);
+        let mut patch = empty_patch();
+        patch.admission_burn_amount = Some(MIN_ADMISSION_BURN_BASE_UNITS);
+        patch.overlay(&mut merged);
+        merged.validate().unwrap();
+        merged.store_into(&mut config);
+
+        assert_eq!(config.kolny_mint, Pubkey::new_from_array([4u8; 32]));
+        assert_eq!(config.total_kolny_burned, 12_345);
+        assert_eq!(config.admission_burn_amount, MIN_ADMISSION_BURN_BASE_UNITS);
     }
 
     /// A patch that is legal on its own but illegal beside the values it lands

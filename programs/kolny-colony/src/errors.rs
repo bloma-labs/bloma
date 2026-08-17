@@ -70,4 +70,19 @@ pub enum ColonyError {
     BondCapacityExceeded,
     #[msg("Colony must have at least one active forager")]
     NoActiveForagers,
+    // Appended, never inserted: Anchor numbers these by declaration order from
+    // 6000, so putting a new variant in the middle would renumber every code
+    // below it and every client that decodes one.
+    #[msg("The $KOLNY mint is not set; run set_kolny_mint before admitting foragers")]
+    AdmissionMintNotSet,
+    #[msg("The $KOLNY mint is already set and cannot be changed")]
+    KolnyMintAlreadySet,
+    #[msg("Mint does not match the configured $KOLNY mint")]
+    KolnyMintMismatch,
+    #[msg("The $KOLNY mint's decimals do not match KOLNY_DECIMALS; the admission constants would mean a different number of tokens")]
+    KolnyMintDecimalsMismatch,
+    #[msg("This mint still has a mint authority, so more could be minted and an admission burn would not permanently reduce supply. Check that you passed the launched $KOLNY mint and that its mint authority is revoked")]
+    KolnyMintAuthorityNotRevoked,
+    #[msg("This mint still has a freeze authority, so holder accounts could be frozen and admission could be blocked for chosen operators. Check that you passed the launched $KOLNY mint and that its freeze authority is revoked")]
+    KolnyMintFreezeAuthorityNotRevoked,
 }

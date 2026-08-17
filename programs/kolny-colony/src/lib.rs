@@ -26,6 +26,13 @@ pub mod math;
 pub mod state;
 pub mod utils;
 
+/// Structural invariants that no single file can assert about itself.
+///
+/// Test-only, and deliberately not one of the files it inspects: a scanner that
+/// scans itself counts its own vocabulary as evidence.
+#[cfg(test)]
+mod invariants;
+
 use instructions::*;
 
 declare_id!("7whkmFfDcTyoJgf7jFGFmKNFMQn8NoreHnh2wZ9nWbsk");
@@ -42,6 +49,12 @@ pub mod kolny_colony {
 
     pub fn update_config(ctx: Context<UpdateConfig>, patch: ConfigPatch) -> Result<()> {
         admin::update_config(ctx, patch)
+    }
+
+    /// Name the mint the admission burn destroys. Writable once, then fixed.
+    /// The colony refuses to register a forager until this has run.
+    pub fn set_kolny_mint(ctx: Context<SetKolnyMint>) -> Result<()> {
+        admin::set_kolny_mint(ctx)
     }
 
     pub fn propose_authority(ctx: Context<ProposeAuthority>, new_authority: Pubkey) -> Result<()> {

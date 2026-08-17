@@ -33,7 +33,7 @@ and the loss-absorption waterfall below states exactly where the cushion ends.
 
 | Account | Seeds | LEN | space (`8 + LEN`) |
 |---|---|---|---|
-| `ColonyConfig` | `[b"colony"]` | 304 | 312 |
+| `ColonyConfig` | `[b"colony"]` | 352 | 360 |
 | `BroodVaultState` | `[b"brood"]` | 128 | 136 |
 | `RiskCacheState` | `[b"cache"]` | 104 | 112 |
 | `TrailBoard` | `[b"trail_board"]` | 176 | 184 |
@@ -93,6 +93,7 @@ program, which is what makes a transfer into it economically irreversible.
 |---|---|---|
 | `initialize_colony(params)` | signer becomes authority | Every parameter range-checked |
 | `update_config(patch)` | authority | Per-field `Option`; each checked against the same bounds |
+| `set_kolny_mint()` | authority | Names the mint the admission burn destroys. Writable once, then fixed. Refuses a mint whose decimals disagree with `KOLNY_DECIMALS`, or whose mint or freeze authority is still live |
 | `propose_authority(new)` | authority | Two-step transfer, step 1 |
 | `accept_authority()` | pending authority | Two-step transfer, step 2 |
 | `set_paused(bool)` | authority | Blocks deposits, rebalancing and scout funding |
@@ -110,7 +111,7 @@ end bundles them into a single transaction, so the user experience is unchanged.
 
 | Instruction | Access | Notes |
 |---|---|---|
-| `register_forager(id, strategy_meta)` | operator | Record only; starts as Scout with zero bond |
+| `register_forager(id, strategy_meta)` | operator | Burns `admission_burn_amount` of `$KOLNY`, then opens the record as a Scout with zero bond. Refuses until `set_kolny_mint` has run |
 | `open_forager_vault(id)` | operator | Sub-account; derives from the record, so it comes second |
 | `top_up_bond(id, amount)` | operator | Posts the bond, in base asset |
 | `promote_forager(id)` | permissionless | Criteria are read from chain state, so anyone can crank it |
@@ -295,6 +296,70 @@ The burn share of a slash is transferred to a locked incinerator PDA that has
 no withdrawal instruction. That is an economic burn. If the base mint is not
 the project token, it does **not** reduce project-token supply, and no code or
 copy here claims that it does.
+
+## The admission burn
+
+Two different things in this program are called a burn, and they are not the same
+act. The slash burn above moves base asset to a locked account: the tokens become
+unreachable, but no mint's supply falls. The admission burn is a real SPL
+`burn_checked`: `$KOLNY` supply drops permanently, and `total_kolny_burned` on
+`ColonyConfig` counts only what was destroyed that way.
+
+Registering a forager destroys `admission_burn_amount` of `$KOLNY` from the
+operator's own account. Three properties are load-bearing:
+
+- **It is a count, not a value.** Admission is N tokens, never "N dollars of
+  tokens". A value would need a price oracle, and this program reads none.
+- **It is a binary eligibility gate.** Burning admits an operator as a Scout and
+  does nothing else. It buys no pheromone, no seed trail, no weight, no larger
+  scout ticket and no earlier promotion; burning ten times the amount changes no
+  allocation by one unit. `src/invariants.rs` fails the test run if any file on a
+  capital path so much as names the admission fields.
+- **The amount is bounded at both ends, and the bounds are not the authority's to
+  move.** The floor and ceiling are compile-time constants and `update_config`
+  range-checks against them exactly as genesis does. Widening either takes a
+  program upgrade.
+
+| | whole $KOLNY | base units | share of supply |
+|---|---|---|---|
+| floor | 10,000 | 10,000,000,000 | 0.001% |
+| default | 100,000 | 100,000,000,000 | 0.01% |
+| ceiling | 1,000,000 | 1,000,000,000,000 | 0.1% |
+
+`$KOLNY` is issued at a fixed supply of 1,000,000,000 with no mint authority, so
+nothing can ever increase supply. That is what makes the admission burn one-way
+rather than a cycle. It is not taken on trust: `set_kolny_mint` **refuses** a mint
+that cannot carry the claims made about it, and each refusal names a different
+broken promise.
+
+| Requirement | The claim it protects | Error |
+|---|---|---|
+| decimals match `KOLNY_DECIMALS` | the arithmetic: at other decimals the stored amount means a different token count | `KolnyMintDecimalsMismatch` |
+| mint authority revoked | "burning permanently reduces supply" is false if more can be minted | `KolnyMintAuthorityNotRevoked` |
+| freeze authority revoked | "anyone who burns is admitted" is false if holder accounts can be frozen, since a frozen account cannot burn | `KolnyMintFreezeAuthorityNotRevoked` |
+
+All three are also published on the `KolnyMintSet` event, so the claims stay
+checkable from the event stream. The mint address itself is **not** compiled into
+this program: it is a deploy-time setting written once by `set_kolny_mint`, so the
+program is deployable before the token exists.
+
+### Units
+
+Amounts appear in two units and every constant name says which: `*_KOLNY` is whole
+tokens, `*_BASE_UNITS` is what the token program moves. They differ by
+`10^decimals`, and a mix-up is a factor of a thousand, not a rounding error. Three
+things keep that from happening, and none of them is a comment:
+
+1. Every base-unit constant is **derived** from its whole-token constant. The
+   conversion is written once, never transcribed.
+2. `set_kolny_mint` refuses a mint whose decimals are not `KOLNY_DECIMALS`, so the
+   assumption behind (1) is checked against the real mint before any burn.
+3. The burn CPI passes `mint.decimals` **read from the mint account**, never the
+   constant. (2) guards the constants; (3) guards the CPI. They are not
+   interchangeable.
+
+`ColonyConfig.admission_burn_amount` and `total_kolny_burned` are both in base
+units.
 
 ## Fixed-point arithmetic contract
 

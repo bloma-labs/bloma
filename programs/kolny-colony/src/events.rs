@@ -213,3 +213,47 @@ pub struct CacheAccrued {
     pub amount: u64,
     pub cache_balance: u64,
 }
+
+/// The one-time write that tells the colony which mint admission destroys.
+///
+/// `decimals` and `mint_authority_is_none` are what the program actually read
+/// off the mint account at the moment it bound to it, recorded so the binding
+/// is publicly auditable after the fact rather than asserted in copy.
+///
+/// All three are also REQUIRED, not merely recorded: `set_kolny_mint` refuses a
+/// mint whose decimals disagree with `KOLNY_DECIMALS`, whose mint authority is
+/// live, or whose freeze authority is live. They are published anyway so the
+/// claims that rest on them stay checkable from the event stream alone, without
+/// anyone having to re-read the mint and trust that it never changed. Since both
+/// authorities are already revoked when this succeeds, neither can come back.
+///
+/// `mint_authority_is_none` carries the supply claim: an admission burn is a
+/// one-way reduction only if nobody can mint more. `freeze_authority_is_none`
+/// carries the admission claim: a frozen account cannot burn, so a live freeze
+/// authority would let someone choose who is allowed into the colony.
+#[event]
+pub struct KolnyMintSet {
+    pub authority: Pubkey,
+    pub kolny_mint: Pubkey,
+    pub decimals: u8,
+    pub mint_authority_is_none: bool,
+    pub freeze_authority_is_none: bool,
+}
+
+/// $KOLNY actually destroyed at a forager's admission.
+///
+/// Separate from `ForagerRegistered` on purpose: this is the stream the public
+/// burn figure is rebuilt from, and it must carry only supply that a
+/// `burn_checked` CPI really removed. Nothing else in this program reduces any
+/// token's supply -- the slash "burn" moves base asset to a locked sink and
+/// says so -- and the treasury buyback of `docs/risk-spec.md` 4.3 happens
+/// outside this program entirely, so it never appears here.
+#[event]
+pub struct KolnyBurned {
+    pub forager: Pubkey,
+    pub operator: Pubkey,
+    pub kolny_mint: Pubkey,
+    pub amount: u64,
+    pub total_kolny_burned: u64,
+    pub epoch: u64,
+}

@@ -33,6 +33,7 @@ use crate::constants::{
 use crate::errors::ColonyError;
 use crate::events::{
     BondToppedUp, ForagerPromoted, ForagerRegistered, ForagerRetired, ForagerVaultOpened,
+    KolnyBurned,
 };
 use crate::state::{BroodVaultState, ColonyConfig, ForagerState};
 use crate::utils;
@@ -63,14 +64,49 @@ pub struct RegisterForager<'info> {
     )]
     pub forager: Box<Account<'info, ForagerState>>,
 
+    /// The $KOLNY mint. Mutable because a burn lowers its supply; a burn CPI
+    /// against an immutable mint fails at runtime, not at build time.
+    ///
+    /// Pinned to `config.kolny_mint` in the handler rather than by a constraint
+    /// here, so that an unset mint and a wrong mint produce different errors.
+    /// Both refuse, but only one of them is fixed by an admin call.
+    #[account(mut)]
+    pub kolny_mint: Box<InterfaceAccount<'info, Mint>>,
+
+    /// The operator's own $KOLNY account, the source of the admission burn.
+    ///
+    /// `token::mint = kolny_mint` binds it to the mint passed above, and the
+    /// handler binds that mint to the one in config, so the pair cannot be used
+    /// to burn some other token the operator happens to hold worthlessly.
+    #[account(
+        mut,
+        token::mint = kolny_mint,
+        token::authority = operator,
+    )]
+    pub operator_kolny_account: Box<InterfaceAccount<'info, TokenAccount>>,
+
+    pub token_program: Interface<'info, TokenInterface>,
     pub system_program: Program<'info, System>,
 }
 
-/// Creates the forager record. Moves no tokens.
+/// Creates the forager record and burns the admission in $KOLNY.
 ///
 /// Registration is frozen while the colony is settling. The settlement crank
 /// finishes on `settled_count == settleable_forager_count`, so allowing the
 /// population to grow mid-crank would move the finish line underneath it.
+///
+/// The admission burn sits here, at the single gate into the colony, and
+/// nowhere else. It is a binary eligibility test: burn and you are a Scout,
+/// do not and you are not in. What an operator burned buys no pheromone, no
+/// larger scout ticket, no seed trail and no weight, and the burn is not
+/// attached to `promote_forager`, `fund_scout`, settlement or rebalancing --
+/// the four places where capital is actually decided. That separation is the
+/// whole claim of this project: capital follows realized performance, not
+/// narrative and not tokens. Putting a burn on a capital path would make the
+/// headline figures a lie, so `instructions/settlement.rs`, `instructions/
+/// risk.rs`, `instructions/vault.rs` and `math.rs` do not mention the admission
+/// fields at all, and `src/invariants.rs` fails the build's test run if they
+/// ever start to.
 pub fn register_forager(
     ctx: Context<RegisterForager>,
     forager_id: u64,
@@ -81,6 +117,27 @@ pub fn register_forager(
         ColonyError::RegistrationFrozenDuringSettlement
     );
     require!(!ctx.accounts.config.paused, ColonyError::Paused);
+
+    // Admission is priced in $KOLNY, so the colony must know which mint that is
+    // before it can admit anyone. Refusing is deliberate, and the alternative
+    // was considered and rejected: skipping the burn while an unset mint
+    // persisted would leave registration succeeding with nothing destroyed, and
+    // no observer could tell that apart from a working colony until somebody
+    // thought to read `total_kolny_burned`. This project has already lost
+    // months to exactly that shape of defect -- an empty program id made every
+    // API response `not_deployed`, and a broken account decoder sat undetected
+    // behind it. A revert is loud, is cleared by one `set_kolny_mint` call
+    // before the first operator ever arrives, and cannot leave un-burned
+    // admissions in the history.
+    require!(
+        ctx.accounts.config.kolny_mint_is_set(),
+        ColonyError::AdmissionMintNotSet
+    );
+    require_keys_eq!(
+        ctx.accounts.kolny_mint.key(),
+        ctx.accounts.config.kolny_mint,
+        ColonyError::KolnyMintMismatch
+    );
 
     let now = Clock::get()?.unix_timestamp;
     let current_epoch = ctx.accounts.config.epoch;
@@ -132,6 +189,27 @@ pub fn register_forager(
     // `open_forager_vault`: a record with no sub-account has no balance to
     // measure, and counting it would let anyone permanently stall the crank.
 
+    // -- effects: the public burn counter ------------------------------------
+
+    let burn_amount = ctx.accounts.config.admission_burn_amount;
+    ctx.accounts.config.record_admission_burn(burn_amount)?;
+    let total_kolny_burned = ctx.accounts.config.total_kolny_burned;
+
+    // -- interaction: destroy the admission ----------------------------------
+
+    // Last, and a failure here reverts the record created above along with the
+    // counter, so a forager can never exist without its burn having happened.
+    // `burn_from_user` refuses a zero amount outright rather than returning
+    // early, which is what keeps "registered" and "burned" the same event.
+    let kolny_mint_key = ctx.accounts.kolny_mint.key();
+    utils::burn_from_user(
+        &ctx.accounts.token_program,
+        &ctx.accounts.kolny_mint,
+        &ctx.accounts.operator_kolny_account,
+        &ctx.accounts.operator,
+        burn_amount,
+    )?;
+
     emit!(ForagerRegistered {
         forager: forager_key,
         operator: operator_key,
@@ -140,6 +218,18 @@ pub fn register_forager(
         // the indexer should read the `BondToppedUp` stream for the real figure.
         bond: 0,
         registered_epoch: current_epoch,
+    });
+
+    // The burn is its own event, not a field on the one above, because the
+    // public supply figure is rebuilt from this stream alone and must carry
+    // only supply a `burn_checked` CPI really removed.
+    emit!(KolnyBurned {
+        forager: forager_key,
+        operator: operator_key,
+        kolny_mint: kolny_mint_key,
+        amount: burn_amount,
+        total_kolny_burned,
+        epoch: current_epoch,
     });
 
     Ok(())

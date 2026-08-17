@@ -1768,6 +1768,32 @@
           }
         },
         {
+          "name": "kolny_mint",
+          "docs": [
+            "The $KOLNY mint. Mutable because a burn lowers its supply; a burn CPI",
+            "against an immutable mint fails at runtime, not at build time.",
+            "",
+            "Pinned to `config.kolny_mint` in the handler rather than by a constraint",
+            "here, so that an unset mint and a wrong mint produce different errors.",
+            "Both refuse, but only one of them is fixed by an admin call."
+          ],
+          "writable": true
+        },
+        {
+          "name": "operator_kolny_account",
+          "docs": [
+            "The operator's own $KOLNY account, the source of the admission burn.",
+            "",
+            "`token::mint = kolny_mint` binds it to the mint passed above, and the",
+            "handler binds that mint to the one in config, so the pair cannot be used",
+            "to burn some other token the operator happens to hold worthlessly."
+          ],
+          "writable": true
+        },
+        {
+          "name": "token_program"
+        },
+        {
           "name": "system_program",
           "address": "11111111111111111111111111111111"
         }
@@ -2078,6 +2104,66 @@
           "type": "u64"
         }
       ]
+    },
+    {
+      "name": "set_kolny_mint",
+      "docs": [
+        "Name the mint the admission burn destroys. Writable once, then fixed.",
+        "The colony refuses to register a forager until this has run."
+      ],
+      "discriminator": [
+        56,
+        225,
+        120,
+        125,
+        65,
+        135,
+        8,
+        148
+      ],
+      "accounts": [
+        {
+          "name": "config",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  108,
+                  111,
+                  110,
+                  121
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "kolny_mint",
+          "docs": [
+            "The $KOLNY mint.",
+            "",
+            "Taken as a real mint account rather than a bare `Pubkey` argument on",
+            "purpose. This write happens once and can never be undone, so a mistyped",
+            "address would leave admission pointing at nothing and registration",
+            "permanently refused. Passing the account makes the token program's own",
+            "layout the check: an address that is not an initialized mint cannot",
+            "deserialize here, so the typo fails now rather than at the first",
+            "registration."
+          ]
+        },
+        {
+          "name": "authority",
+          "signer": true,
+          "relations": [
+            "config"
+          ]
+        }
+      ],
+      "args": []
     },
     {
       "name": "set_paused",
@@ -3089,6 +3175,32 @@
       ]
     },
     {
+      "name": "KolnyBurned",
+      "discriminator": [
+        164,
+        103,
+        55,
+        14,
+        243,
+        160,
+        204,
+        28
+      ]
+    },
+    {
+      "name": "KolnyMintSet",
+      "discriminator": [
+        252,
+        26,
+        136,
+        111,
+        32,
+        62,
+        94,
+        199
+      ]
+    },
+    {
       "name": "LossCovered",
       "discriminator": [
         185,
@@ -3371,6 +3483,36 @@
       "code": 6032,
       "name": "NoActiveForagers",
       "msg": "Colony must have at least one active forager"
+    },
+    {
+      "code": 6033,
+      "name": "AdmissionMintNotSet",
+      "msg": "The $KOLNY mint is not set; run set_kolny_mint before admitting foragers"
+    },
+    {
+      "code": 6034,
+      "name": "KolnyMintAlreadySet",
+      "msg": "The $KOLNY mint is already set and cannot be changed"
+    },
+    {
+      "code": 6035,
+      "name": "KolnyMintMismatch",
+      "msg": "Mint does not match the configured $KOLNY mint"
+    },
+    {
+      "code": 6036,
+      "name": "KolnyMintDecimalsMismatch",
+      "msg": "The $KOLNY mint's decimals do not match KOLNY_DECIMALS; the admission constants would mean a different number of tokens"
+    },
+    {
+      "code": 6037,
+      "name": "KolnyMintAuthorityNotRevoked",
+      "msg": "This mint still has a mint authority, so more could be minted and an admission burn would not permanently reduce supply. Check that you passed the launched $KOLNY mint and that its mint authority is revoked"
+    },
+    {
+      "code": 6038,
+      "name": "KolnyMintFreezeAuthorityNotRevoked",
+      "msg": "This mint still has a freeze authority, so holder accounts could be frozen and admission could be blocked for chosen operators. Check that you passed the launched $KOLNY mint and that its freeze authority is revoked"
     }
   ],
   "types": [
@@ -3792,6 +3934,34 @@
                 7
               ]
             }
+          },
+          {
+            "name": "kolny_mint",
+            "docs": [
+              "The mint the admission burn destroys. `Pubkey::default()` means it has",
+              "not been set yet, and `register_forager` refuses to run until it is.",
+              "Written exactly once, by `set_kolny_mint`."
+            ],
+            "type": "pubkey"
+          },
+          {
+            "name": "admission_burn_amount",
+            "docs": [
+              "$KOLNY destroyed by one `register_forager`, in base units. A fixed",
+              "count, never a value: no price is read anywhere near it, and what an",
+              "operator burned is not an input to any allocation."
+            ],
+            "type": "u64"
+          },
+          {
+            "name": "total_kolny_burned",
+            "docs": [
+              "Cumulative admission burn, in base units. The honest public counter: it",
+              "counts only what this program actually destroyed through `burn_checked`,",
+              "not tokens moved to a sink, and not any treasury buyback that happens",
+              "outside this program."
+            ],
+            "type": "u64"
           }
         ]
       }
@@ -3993,6 +4163,12 @@
             "name": "cache_reserve_target_bps",
             "type": {
               "option": "u16"
+            }
+          },
+          {
+            "name": "admission_burn_amount",
+            "type": {
+              "option": "u64"
             }
           }
         ]
@@ -4562,6 +4738,104 @@
           {
             "name": "cache_reserve_target_bps",
             "type": "u16"
+          },
+          {
+            "name": "admission_burn_amount",
+            "docs": [
+              "$KOLNY destroyed per registration, in base units. A count, not a value.",
+              "The mint it destroys is NOT settable here: `kolny_mint` is written once",
+              "by `set_kolny_mint` and an authority cannot repoint it afterwards."
+            ],
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "KolnyBurned",
+      "docs": [
+        "$KOLNY actually destroyed at a forager's admission.",
+        "",
+        "Separate from `ForagerRegistered` on purpose: this is the stream the public",
+        "burn figure is rebuilt from, and it must carry only supply that a",
+        "`burn_checked` CPI really removed. Nothing else in this program reduces any",
+        "token's supply -- the slash \"burn\" moves base asset to a locked sink and",
+        "says so -- and the treasury buyback of `docs/risk-spec.md` 4.3 happens",
+        "outside this program entirely, so it never appears here."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "forager",
+            "type": "pubkey"
+          },
+          {
+            "name": "operator",
+            "type": "pubkey"
+          },
+          {
+            "name": "kolny_mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "amount",
+            "type": "u64"
+          },
+          {
+            "name": "total_kolny_burned",
+            "type": "u64"
+          },
+          {
+            "name": "epoch",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "KolnyMintSet",
+      "docs": [
+        "The one-time write that tells the colony which mint admission destroys.",
+        "",
+        "`decimals` and `mint_authority_is_none` are what the program actually read",
+        "off the mint account at the moment it bound to it, recorded so the binding",
+        "is publicly auditable after the fact rather than asserted in copy.",
+        "",
+        "All three are also REQUIRED, not merely recorded: `set_kolny_mint` refuses a",
+        "mint whose decimals disagree with `KOLNY_DECIMALS`, whose mint authority is",
+        "live, or whose freeze authority is live. They are published anyway so the",
+        "claims that rest on them stay checkable from the event stream alone, without",
+        "anyone having to re-read the mint and trust that it never changed. Since both",
+        "authorities are already revoked when this succeeds, neither can come back.",
+        "",
+        "`mint_authority_is_none` carries the supply claim: an admission burn is a",
+        "one-way reduction only if nobody can mint more. `freeze_authority_is_none`",
+        "carries the admission claim: a frozen account cannot burn, so a live freeze",
+        "authority would let someone choose who is allowed into the colony."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "authority",
+            "type": "pubkey"
+          },
+          {
+            "name": "kolny_mint",
+            "type": "pubkey"
+          },
+          {
+            "name": "decimals",
+            "type": "u8"
+          },
+          {
+            "name": "mint_authority_is_none",
+            "type": "bool"
+          },
+          {
+            "name": "freeze_authority_is_none",
+            "type": "bool"
           }
         ]
       }

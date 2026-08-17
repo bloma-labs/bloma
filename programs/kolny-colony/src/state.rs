@@ -101,11 +101,57 @@ pub struct ColonyConfig {
     pub bump: u8,
 
     pub _padding: [u8; 7],
+
+    // -- $KOLNY admission burn ------------------------------------------- 48
+    //
+    // Appended after `_padding` rather than filed into a section above, and the
+    // reason is a defect this repository has already shipped. Borsh serializes
+    // in declaration order, so appending leaves the byte offset of every field
+    // above unchanged and an out-of-date decoder fails on the length -- loudly.
+    // Inserting into the middle instead moves every following field, and a
+    // length guard cannot see that: `BroodVaultState` was once decoded in the
+    // wrong field order at exactly the right total length, and it silently
+    // reported a vault holding 0 with 0.2 queued for redemption when the truth
+    // was the reverse. This layout is therefore only ever grown at the end.
+    /// The mint the admission burn destroys. `Pubkey::default()` means it has
+    /// not been set yet, and `register_forager` refuses to run until it is.
+    /// Written exactly once, by `set_kolny_mint`.
+    pub kolny_mint: Pubkey,
+    /// $KOLNY destroyed by one `register_forager`, in base units. A fixed
+    /// count, never a value: no price is read anywhere near it, and what an
+    /// operator burned is not an input to any allocation.
+    pub admission_burn_amount: u64,
+    /// Cumulative admission burn, in base units. The honest public counter: it
+    /// counts only what this program actually destroyed through `burn_checked`,
+    /// not tokens moved to a sink, and not any treasury buyback that happens
+    /// outside this program.
+    pub total_kolny_burned: u64,
 }
 
 impl ColonyConfig {
-    // 96 + 32 + 48 + 56 + 20 + 38 + 7 + 7 = 304
-    pub const LEN: usize = 304;
+    // 96 + 32 + 48 + 56 + 20 + 38 + 7 + 7 + 48 = 352
+    pub const LEN: usize = 352;
+
+    /// Whether the colony knows which mint admission destroys.
+    ///
+    /// Both gates that care about this call it, so there is one definition of
+    /// "set" rather than two comparisons that can drift apart.
+    pub fn kolny_mint_is_set(&self) -> bool {
+        self.kolny_mint != Pubkey::default()
+    }
+
+    /// Record an admission burn against the public counter.
+    ///
+    /// `register_forager` calls exactly this, so the accumulation the tests
+    /// exercise is the accumulation that runs on-chain rather than a second
+    /// copy of the same expression written in a test.
+    pub fn record_admission_burn(&mut self, amount: u64) -> Result<()> {
+        self.total_kolny_burned = self
+            .total_kolny_burned
+            .checked_add(amount)
+            .ok_or(crate::errors::ColonyError::Overflow)?;
+        Ok(())
+    }
 }
 
 /// One forager: an operator-run trail the colony can send capital down.
@@ -339,7 +385,83 @@ mod tests {
     #[test]
     fn serialized_len_matches_colony_config() {
         assert_len!(ColonyConfig, "ColonyConfig");
-        assert_eq!(ColonyConfig::LEN, 304);
+        assert_eq!(ColonyConfig::LEN, 352);
+    }
+
+    /// The admission fields must sit at the END of the account.
+    ///
+    /// Appending keeps every pre-existing byte offset where it was, so a
+    /// decoder built against the old layout fails on the length instead of
+    /// parsing on and returning wrong values. This asserts the offsets by
+    /// serializing a real instance, not by re-adding the field sizes: the
+    /// point is to compare the constant against the bytes, not against
+    /// arithmetic that could be wrong in the same direction twice.
+    #[test]
+    fn admission_fields_are_appended_after_the_existing_layout() {
+        let mut c = ColonyConfig::default();
+        c.kolny_mint = Pubkey::new_from_array([7u8; 32]);
+        c.admission_burn_amount = 0x0102_0304_0506_0708;
+        c.total_kolny_burned = 0x1112_1314_1516_1718;
+
+        let bytes = c.try_to_vec().unwrap();
+        assert_eq!(bytes.len(), 352);
+        assert_eq!(&bytes[304..336], &[7u8; 32]);
+        assert_eq!(
+            &bytes[336..344],
+            &0x0102_0304_0506_0708u64.to_le_bytes()[..]
+        );
+        assert_eq!(
+            &bytes[344..352],
+            &0x1112_1314_1516_1718u64.to_le_bytes()[..]
+        );
+
+        // Control for the assertions above: with only the three new fields
+        // set, everything the old layout occupied is still zero. Had a field
+        // been inserted mid-struct instead of appended, these bytes would
+        // carry the new values and this would fail.
+        assert!(
+            bytes[..304].iter().all(|b| *b == 0),
+            "a byte before offset 304 moved; the new fields were not appended"
+        );
+    }
+
+    #[test]
+    fn kolny_mint_is_unset_until_it_is_written() {
+        let mut c = ColonyConfig::default();
+        assert!(
+            !c.kolny_mint_is_set(),
+            "a fresh colony must not claim to know the $KOLNY mint"
+        );
+        c.kolny_mint = Pubkey::new_from_array([3u8; 32]);
+        assert!(c.kolny_mint_is_set());
+    }
+
+    /// The public burn counter must accumulate, and must refuse to wrap.
+    ///
+    /// This drives `record_admission_burn`, the same method the register
+    /// handler calls, rather than a second copy of the expression.
+    #[test]
+    fn admission_burns_accumulate_and_cannot_wrap() {
+        let mut c = ColonyConfig::default();
+        assert_eq!(c.total_kolny_burned, 0);
+
+        for _ in 0..5 {
+            c.record_admission_burn(100_000_000_000).unwrap();
+        }
+        assert_eq!(c.total_kolny_burned, 500_000_000_000);
+
+        // Control: the counter is not simply being overwritten by the last
+        // call, and a distinct amount lands on top of the running total.
+        c.record_admission_burn(7).unwrap();
+        assert_eq!(c.total_kolny_burned, 500_000_000_007);
+
+        let mut c = ColonyConfig::default();
+        c.total_kolny_burned = u64::MAX;
+        assert!(
+            c.record_admission_burn(1).is_err(),
+            "an overflowing burn total must revert, not wrap to a smaller figure"
+        );
+        assert_eq!(c.total_kolny_burned, u64::MAX);
     }
 
     #[test]
