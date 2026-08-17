@@ -85,4 +85,6 @@ pub enum ColonyError {
     KolnyMintAuthorityNotRevoked,
     #[msg("This mint still has a freeze authority, so holder accounts could be frozen and admission could be blocked for chosen operators. Check that you passed the launched $KOLNY mint and that its freeze authority is revoked")]
     KolnyMintFreezeAuthorityNotRevoked,
+    #[msg("The colony config is not in the pre-admission layout: the migration has already run, or this is not the colony config account")]
+    ColonyConfigNotLegacy,
 }

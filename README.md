@@ -47,7 +47,7 @@ Read this section before anything else.
 
   | Singleton | Address | Bytes |
   |---|---|---|
-  | `colony_config` | `64abUz1zEsF8USkGQcpHxJRjWAxJH4jUaKmM5uKun173` | 312 |
+  | `colony_config` | `64abUz1zEsF8USkGQcpHxJRjWAxJH4jUaKmM5uKun173` | 360 |
   | `brood_vault` | `HV2A82xp6SyuFqaCSVyC4zFhW8qQTAr5pSz468WrTkoV` | 136 |
   | `risk_cache` | `44Ci19oaaJtfJ3UyoBjpGhyjTykN6iiUyWUqHeo1PEQB` | 112 |
   | `trail_board` | `AAyhHjRrRc47vKNRpRt3voUwwGyQK3mT153qvjamYTXr` | 184 |

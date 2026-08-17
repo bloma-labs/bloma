@@ -332,6 +332,15 @@ pub const fn admission_decimals_match(mint_decimals: u8) -> bool {
     mint_decimals == KOLNY_DECIMALS
 }
 
+/// Total byte length of a `ColonyConfig` account written before the admission
+/// burn existed: the 8-byte discriminator plus a 304-byte body.
+///
+/// This is a HISTORICAL constant and must never be recomputed from the current
+/// struct. It is the one number `migrate_colony_config` uses to tell an
+/// un-migrated account from a migrated one, which is also what makes that
+/// instruction impossible to run twice.
+pub const LEGACY_COLONY_CONFIG_ACCOUNT_LEN: usize = 8 + 304;
+
 /// Why the colony refused to bind to a mint.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum AdmissionMintRejection {

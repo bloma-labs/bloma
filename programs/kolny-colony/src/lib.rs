@@ -57,6 +57,13 @@ pub mod kolny_colony {
         admin::set_kolny_mint(ctx)
     }
 
+    /// Grow a `ColonyConfig` written before the admission burn existed into the
+    /// current layout, in place. One-shot: it only accepts the old length, and
+    /// succeeding makes the account longer than that.
+    pub fn migrate_colony_config(ctx: Context<MigrateColonyConfig>) -> Result<()> {
+        admin::migrate_colony_config(ctx)
+    }
+
     pub fn propose_authority(ctx: Context<ProposeAuthority>, new_authority: Pubkey) -> Result<()> {
         admin::propose_authority(ctx, new_authority)
     }

@@ -94,6 +94,7 @@ program, which is what makes a transfer into it economically irreversible.
 | `initialize_colony(params)` | signer becomes authority | Every parameter range-checked |
 | `update_config(patch)` | authority | Per-field `Option`; each checked against the same bounds |
 | `set_kolny_mint()` | authority | Names the mint the admission burn destroys. Writable once, then fixed. Refuses a mint whose decimals disagree with `KOLNY_DECIMALS`, or whose mint or freeze authority is still live |
+| `migrate_colony_config()` | authority | Grows a config written before the admission burn from 312 to 360 bytes, in place. One-shot: it only accepts the old length, so succeeding disables it |
 | `propose_authority(new)` | authority | Two-step transfer, step 1 |
 | `accept_authority()` | pending authority | Two-step transfer, step 2 |
 | `set_paused(bool)` | authority | Blocks deposits, rebalancing and scout funding |

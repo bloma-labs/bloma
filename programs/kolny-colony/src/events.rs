@@ -240,6 +240,18 @@ pub struct KolnyMintSet {
     pub freeze_authority_is_none: bool,
 }
 
+/// A `ColonyConfig` grown in place from the pre-admission layout.
+///
+/// Emitted once and never again: the instruction that emits it refuses any
+/// account that is not still the old length, so a second run cannot happen.
+#[event]
+pub struct ColonyConfigMigrated {
+    pub config: Pubkey,
+    pub old_len: u64,
+    pub new_len: u64,
+    pub admission_burn_amount: u64,
+}
+
 /// $KOLNY actually destroyed at a forager's admission.
 ///
 /// Separate from `ForagerRegistered` on purpose: this is the stream the public

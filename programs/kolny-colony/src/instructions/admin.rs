@@ -785,6 +785,165 @@ pub fn set_kolny_mint(ctx: Context<SetKolnyMint>) -> Result<()> {
 }
 
 // ---------------------------------------------------------------------------
+// 2c. migrate_colony_config  (one-shot, self-disabling)
+// ---------------------------------------------------------------------------
+
+#[derive(Accounts)]
+pub struct MigrateColonyConfig<'info> {
+    /// CHECK: unchecked on purpose, and this is the entire reason the
+    /// instruction exists. The account still holds the pre-admission layout, so
+    /// `Account<'info, ColonyConfig>` cannot deserialize it -- the migration has
+    /// to reach the raw bytes. Everything `Account` would have checked is
+    /// checked by hand in the handler: the seeds constraint here pins the
+    /// address, and the handler pins the owning program, the discriminator, the
+    /// old length, and the stored authority.
+    #[account(mut, seeds = [SEED_COLONY], bump)]
+    pub config: UncheckedAccount<'info>,
+
+    #[account(mut)]
+    pub authority: Signer<'info>,
+
+    pub system_program: Program<'info, System>,
+}
+
+/// Grow an existing `ColonyConfig` from the pre-admission layout to the current
+/// one, in place.
+///
+/// Why this is possible at all: the three admission fields were APPENDED after
+/// `_padding` rather than filed into a section above, so the 304 bytes already
+/// on chain are a valid PREFIX of the 352-byte layout. Growing the account and
+/// zeroing the tail therefore produces a correct current-layout account with no
+/// field-by-field rewrite and no chance of transcribing an offset wrong. Had the
+/// fields been inserted mid-struct, every following field would have shifted and
+/// this instruction could not exist -- the account would have had to be closed
+/// and rebuilt, and `ColonyConfig` has no close path.
+///
+/// Why it is needed: `initialize_colony` creates the config with `init`, which
+/// fails on an account that already exists, and nothing in this program closes
+/// or resizes one. Without this instruction a colony deployed under the old
+/// layout can never be read again by the new code and can never be recreated at
+/// its own PDA.
+///
+/// One-shot by construction, not by convention: the length gate below only
+/// admits `LEGACY_COLONY_CONFIG_ACCOUNT_LEN`, and the first successful run makes
+/// the account longer than that. A second call fails. There is no flag to
+/// forget to set and no cleanup deploy to remember.
+///
+/// It moves no tokens, touches no vault, and cannot change a single parameter:
+/// the only field it writes is `admission_burn_amount`, and only because zero is
+/// outside the published band.
+pub fn migrate_colony_config(ctx: Context<MigrateColonyConfig>) -> Result<()> {
+    let new_len = 8 + ColonyConfig::LEN;
+    let info = ctx.accounts.config.to_account_info();
+
+    // -- checks -------------------------------------------------------------
+
+    // The seeds constraint fixed the address; this fixes who owns it. A PDA can
+    // only be created by the program that derives it, so this should always
+    // hold -- but "should always hold" is how an unchecked account becomes a
+    // hole, and an account that does not exist yet is owned by the system
+    // program, which this catches.
+    require_keys_eq!(*info.owner, crate::ID, ColonyError::VaultMismatch);
+
+    {
+        let data = info.try_borrow_data()?;
+
+        // The gate that makes this one-shot. It is also the type check that
+        // `Account` would normally do by length: only the old layout is
+        // admitted, and a migrated account is longer.
+        require!(
+            data.len() == LEGACY_COLONY_CONFIG_ACCOUNT_LEN,
+            ColonyError::ColonyConfigNotLegacy
+        );
+        require!(
+            &data[..8] == ColonyConfig::DISCRIMINATOR,
+            ColonyError::ColonyConfigNotLegacy
+        );
+
+        // `authority` is the first field of the struct, so it sits immediately
+        // after the discriminator in both layouts. Read from the stored bytes
+        // rather than from a deserialized account, because the account cannot
+        // be deserialized yet -- that is the whole problem being solved.
+        let stored_authority = Pubkey::try_from(&data[8..40])
+            .map_err(|_| error!(ColonyError::ColonyConfigNotLegacy))?;
+        require_keys_eq!(
+            stored_authority,
+            ctx.accounts.authority.key(),
+            ColonyError::NotAuthority
+        );
+    }
+
+    // -- effects ------------------------------------------------------------
+
+    // Fund first, then grow. The reverse order would leave the account below
+    // the rent-exempt threshold between the two steps.
+    let minimum = Rent::get()?.minimum_balance(new_len);
+    let current = info.lamports();
+    if minimum > current {
+        anchor_lang::system_program::transfer(
+            CpiContext::new(
+                ctx.accounts.system_program.to_account_info(),
+                anchor_lang::system_program::Transfer {
+                    from: ctx.accounts.authority.to_account_info(),
+                    to: info.clone(),
+                },
+            ),
+            minimum - current,
+        )?;
+    }
+
+    info.resize(new_len)?;
+
+    {
+        let mut data = info.try_borrow_mut_data()?;
+        require!(data.len() == new_len, ColonyError::ColonyConfigNotLegacy);
+        // Zero the appended tail explicitly rather than trusting the runtime to
+        // have done it. `kolny_mint` becomes `Pubkey::default()` (unset, which
+        // is correct: the token may not exist yet and `set_kolny_mint` is the
+        // only thing allowed to name it) and `total_kolny_burned` becomes 0
+        // (correct: nothing has been burned).
+        for b in data[LEGACY_COLONY_CONFIG_ACCOUNT_LEN..new_len].iter_mut() {
+            *b = 0;
+        }
+    }
+
+    // Read the grown account back through the normal typed path. If the prefix
+    // reasoning above were wrong, this is where it fails, before anything is
+    // published.
+    let mut config = {
+        let data = info.try_borrow_data()?;
+        ColonyConfig::try_deserialize(&mut &data[..])?
+    };
+
+    // The one field the zero fill gets wrong. Zero is outside
+    // [MIN_ADMISSION_BURN_BASE_UNITS, MAX_ADMISSION_BURN_BASE_UNITS], and
+    // `update_config` re-validates the whole merged configuration, so leaving it
+    // at zero would make every future config edit revert.
+    config.admission_burn_amount = DEFAULT_ADMISSION_BURN_BASE_UNITS;
+
+    // Post-condition: what this instruction leaves behind must be a
+    // configuration the program would have accepted at genesis. Asserted here
+    // rather than assumed, because a migration that produces an illegal config
+    // is a migration that quietly bricks `update_config`.
+    InitColonyParams::from_config(&config).validate()?;
+
+    {
+        let mut data = info.try_borrow_mut_data()?;
+        let mut cursor: &mut [u8] = &mut data;
+        config.try_serialize(&mut cursor)?;
+    }
+
+    emit!(ColonyConfigMigrated {
+        config: info.key(),
+        old_len: LEGACY_COLONY_CONFIG_ACCOUNT_LEN as u64,
+        new_len: new_len as u64,
+        admission_burn_amount: config.admission_burn_amount,
+    });
+
+    Ok(())
+}
+
+// ---------------------------------------------------------------------------
 // 3. propose_authority  /  4. accept_authority
 // ---------------------------------------------------------------------------
 
@@ -1533,6 +1692,56 @@ mod tests {
         assert_eq!(config.kolny_mint, Pubkey::new_from_array([4u8; 32]));
         assert_eq!(config.total_kolny_burned, 12_345);
         assert_eq!(config.admission_burn_amount, MIN_ADMISSION_BURN_BASE_UNITS);
+    }
+
+    /// The migration's length gate must be able to tell the two layouts apart.
+    /// If these ever collided the instruction would be re-runnable, and worse,
+    /// it would accept an already-migrated account and zero live fields.
+    #[test]
+    fn the_legacy_length_is_distinguishable_from_the_current_one() {
+        assert_eq!(LEGACY_COLONY_CONFIG_ACCOUNT_LEN, 312);
+        assert_eq!(8 + ColonyConfig::LEN, 360);
+        assert_ne!(LEGACY_COLONY_CONFIG_ACCOUNT_LEN, 8 + ColonyConfig::LEN);
+        // The old body is a strict prefix of the new one, which is what makes
+        // an in-place grow correct at all.
+        assert!(LEGACY_COLONY_CONFIG_ACCOUNT_LEN < 8 + ColonyConfig::LEN);
+        assert_eq!(
+            (8 + ColonyConfig::LEN) - LEGACY_COLONY_CONFIG_ACCOUNT_LEN,
+            48,
+            "the appended fields are 32 + 8 + 8 bytes"
+        );
+    }
+
+    /// What the migration leaves behind must be a configuration the program
+    /// would have accepted at genesis.
+    #[test]
+    fn a_migrated_config_is_a_legal_configuration() {
+        // The post-realloc state: old fields intact, the three appended ones
+        // zeroed.
+        let mut config = ColonyConfig::default();
+        published_defaults().store_into(&mut config);
+        config.admission_burn_amount = 0;
+        config.kolny_mint = Pubkey::default();
+        config.total_kolny_burned = 0;
+
+        // Control, and the reason the migration writes one field at all: a zero
+        // admission burn is OUTSIDE the published band, so leaving it there
+        // would make every later `update_config` revert.
+        assert!(
+            InitColonyParams::from_config(&config).validate().is_err(),
+            "a zero admission burn must not be a legal configuration"
+        );
+
+        // What the migration actually writes.
+        config.admission_burn_amount = DEFAULT_ADMISSION_BURN_BASE_UNITS;
+        assert!(InitColonyParams::from_config(&config).validate().is_ok());
+
+        // And what it must NOT do: name a mint, or invent a burn history.
+        assert!(
+            !config.kolny_mint_is_set(),
+            "migration must leave the mint unset; only set_kolny_mint names it"
+        );
+        assert_eq!(config.total_kolny_burned, 0);
     }
 
     /// A patch that is legal on its own but illegal beside the values it lands

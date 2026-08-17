@@ -1017,6 +1017,63 @@
       "args": []
     },
     {
+      "name": "migrate_colony_config",
+      "docs": [
+        "Grow a `ColonyConfig` written before the admission burn existed into the",
+        "current layout, in place. One-shot: it only accepts the old length, and",
+        "succeeding makes the account longer than that."
+      ],
+      "discriminator": [
+        208,
+        215,
+        129,
+        247,
+        140,
+        153,
+        220,
+        134
+      ],
+      "accounts": [
+        {
+          "name": "config",
+          "docs": [
+            "instruction exists. The account still holds the pre-admission layout, so",
+            "`Account<'info, ColonyConfig>` cannot deserialize it -- the migration has",
+            "to reach the raw bytes. Everything `Account` would have checked is",
+            "checked by hand in the handler: the seeds constraint here pins the",
+            "address, and the handler pins the owning program, the discriminator, the",
+            "old length, and the stored authority."
+          ],
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  108,
+                  111,
+                  110,
+                  121
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "authority",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": []
+    },
+    {
       "name": "open_cache_vault",
       "discriminator": [
         215,
@@ -3032,6 +3089,19 @@
       ]
     },
     {
+      "name": "ColonyConfigMigrated",
+      "discriminator": [
+        214,
+        246,
+        13,
+        105,
+        42,
+        75,
+        103,
+        6
+      ]
+    },
+    {
       "name": "ColonyInitialized",
       "discriminator": [
         231,
@@ -3513,6 +3583,11 @@
       "code": 6038,
       "name": "KolnyMintFreezeAuthorityNotRevoked",
       "msg": "This mint still has a freeze authority, so holder accounts could be frozen and admission could be blocked for chosen operators. Check that you passed the launched $KOLNY mint and that its freeze authority is revoked"
+    },
+    {
+      "code": 6039,
+      "name": "ColonyConfigNotLegacy",
+      "msg": "The colony config is not in the pre-admission layout: the migration has already run, or this is not the colony config account"
     }
   ],
   "types": [
@@ -3961,6 +4036,36 @@
               "not tokens moved to a sink, and not any treasury buyback that happens",
               "outside this program."
             ],
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ColonyConfigMigrated",
+      "docs": [
+        "A `ColonyConfig` grown in place from the pre-admission layout.",
+        "",
+        "Emitted once and never again: the instruction that emits it refuses any",
+        "account that is not still the old length, so a second run cannot happen."
+      ],
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "config",
+            "type": "pubkey"
+          },
+          {
+            "name": "old_len",
+            "type": "u64"
+          },
+          {
+            "name": "new_len",
+            "type": "u64"
+          },
+          {
+            "name": "admission_burn_amount",
             "type": "u64"
           }
         ]
